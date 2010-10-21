@@ -1,0 +1,190 @@
+" NOTES:
+" * Should add some kind of help string for each command.
+
+" Known Bugs:
+" * After doing the diff, if the original window is split, closing the diff
+"   window only restores settings for one of the remaining diff windows.
+" * More than one file can be diffed at once. The results aren't good, since
+"   vim compares all the files to each other. Undiffing in this case also
+"   doesn't do what is expected since it just restores every window.
+
+" DEFINITIONS
+
+let s:vcs_names = []
+let s:command_names = {} " {'vcsname' : ['DiffCommandName']}
+
+if exists('g:vcsdiff_include')
+    let s:include = g:vcsdiff_include
+else
+    let s:include = s:vcs_names
+endif
+
+if !exists('g:vcsdiff_new_win_prefix')
+    let g:vcsdiff_new_win_prefix = 'vertical'
+endif
+
+if !exists('g:vcsdiff_cursor_new_window')
+    let g:vcsdiff_cursor_new_window = 1
+endif
+
+" UTILITY FUNCTIONS
+
+" s:Strip(str) returns a copy of str with leading and trailing whitespace
+" removed.
+function! s:Strip(str)
+    return substitute(a:str, '\v^[ \t\r\n]*(.{-})[ \t\r\n]*$', '\1', '')
+endfunction
+
+" s:WriteCmdOutput(cmd) executes a command and writes the output to the
+" current buffer without an extra empty line and without trashing registers.
+" This currently assumes the buffer is initially empty, and doesn't handle
+" errors as well as it could.
+function! s:WriteCmdOutput(cmd)
+    exec 'read ! ' . a:cmd
+    " :read inserts below the cursor, leaving an empty line in a previously
+    " empty buffer. Delete the line without saving it in a register.
+    normal gg"_dd
+endfunction
+
+" s:ChFileDir changes directory to the directory containing the file.
+function! s:ChFileDir(path)
+    exe 'cd ' . fnamemodify(a:path, ':h')
+endfunction
+
+" There's no rethrow in vim, and the standard way to emulate it, by thowing
+" v:exception, fails with vim errors (see :help rethrow). This is a
+" work-around.
+function! s:Rethrow()
+    if v:exception =~# '\v^Vim'
+        " Can't throw this directly
+        echoerr v:exception
+    endif
+    throw v:exception
+endfunction
+
+" Set the name for the buffer.
+function! s:SetBufName(name)
+    exec 'silent file ' . fnameescape(a:name)
+endfunction
+
+" INNER WORKINGS
+
+function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs)
+    call add(s:vcs_names, a:vcs_name)
+    let cmds = get(s:command_names, a:vcs_name, [])
+    let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
+    if index(s:include, a:vcs_name) != -1
+        exe 'command! -nargs=' . a:nargs . ' ' . a:cmd_name .
+            \ " call s:Diff('" . a:buffer_func . "', [<f-args>])"
+    endif
+endfunction
+
+function! s:Diff(funcname, args)
+    let saveddir = getcwd()
+    " Error handling is tricky, but just being in a try block makes vim throw
+    " errors instead of reporting and continuing. See :help except-compat.
+    try
+        " Gather info
+        let filepath = expand('%:p')
+        let filetype = &filetype
+        let w:vcsdiff_restore = 'diffoff|'
+            \ . 'setlocal'
+            \ . (&diff ? ' diff' : ' nodiff')
+            \ . (&scrollbind ? ' scrollbind' : ' noscrollbind')
+            \ . ' scrollopt=' . &scrollopt
+            \ . (&wrap ? ' wrap' : ' nowrap')
+            \ . ' foldmethod=' . &foldmethod
+            \ . ' foldcolumn=' . &foldcolumn
+
+        " Prepare starting buffer
+        diffthis
+
+        " Create and prepare new buffer.
+        exec g:vcsdiff_new_win_prefix . ' new'
+        try
+            " See :help special-buffers. For bufhidden, only hide or wipe seem
+            " to make any sense. Otherwise the buffer is unloaded and anything
+            " that's left isn't useful.
+            set buftype=nofile bufhidden=wipe
+            exec 'call ' a:funcname "('" . filepath . "', a:args)"
+            setlocal nomodifiable
+            let &filetype = filetype
+            diffthis
+            autocmd BufWinLeave <buffer> call s:Undiff()
+        catch
+            " Close the new window, then propogate the error so it can be
+            " reported.
+            close
+            call s:Rethrow()
+        endtry
+
+        if !g:vcsdiff_cursor_new_window
+            wincmd p
+        endif
+
+    catch
+        " Undo any changes made to the original buffer and window, then
+        " propogate the error so it can be reported.
+        call s:Undiff()
+        call s:Rethrow()
+
+    finally
+        " Clean up
+        exec 'cd ' . saveddir
+    endtry
+endfunction
+
+function! s:Undiff()
+    let cur_win = winnr()
+    let last_win = winnr('$')
+    " Loop through all windows executing restore commands where they exist.
+    " There should actually only be one window with such a command, but if
+    " there are others (perhaps due to bugs) it's probably best to go ahead
+    " and get rid of them.
+    for i in range(1, last_win)
+        exec i . 'wincmd w'
+        if exists('w:vcsdiff_restore')
+            exec w:vcsdiff_restore
+            unlet w:vcsdiff_restore
+        endif
+    endfor
+    exec cur_win . 'wincmd w'
+endfunction
+
+function! s:List()
+    echo 'Supported Version Control Systems (* = currently enabled)'
+    for [name, cmds] in items(s:command_names)
+        if index(s:include, name) != -1
+            let used = '* '
+        else
+            let used = '  '
+        endif
+        echo used . name . ' (' . join(cmds, ', ') . ')'
+    endfor
+endfunction
+
+command! VcsDiffList call s:List()
+
+" VCS FUNCTIONS
+
+function! s:GitUnmodified(path, args)
+    if empty(a:args)
+        let revision = ''
+        let from = ' from index'
+    else
+        let revision = a:args[0]
+        let from = ' from ' . revision
+    endif
+    call s:ChFileDir(a:path)
+    let prefix = s:Strip(system('git rev-parse --show-prefix'))
+    if v:shell_error != 0
+        throw 'git rev-parse command failed. Not a git repo?'
+    endif
+    let fname = fnamemodify(a:path, ':t')
+    call s:WriteCmdOutput('git show "' . revision . ':' . prefix . fname . '"')
+    call s:SetBufName(fname . from)
+endfunction
+
+" VCS COMMANDS
+
+call s:AddVcsDiff('git', 'GitDiff', 's:GitUnmodified', '?')
