@@ -1,14 +1,34 @@
-" NOTES:
+" {{{ COPYRIGHT & LICENSE
+"
+" Copyright 2010 Kevin Goodsell
+"
+" This program is free software: you can redistribute it and/or modify it under
+" the terms of the GNU General Public License as published by the Free Software
+" Foundation, either version 3 of the License, or (at your option) any later
+" version.
+"
+" This program is distributed in the hope that it will be useful, but WITHOUT
+" ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+" FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+" details.
+"
+" You should have received a copy of the GNU General Public License along with
+" this program.  If not, see <http://www.gnu.org/licenses/>.
+"
+" }}}
+" {{{ NOTES
+"
 " * Should add some kind of help string for each command.
-
+"
 " Known Bugs:
 " * After doing the diff, if the original window is split, closing the diff
 "   window only restores settings for one of the remaining diff windows.
 " * More than one file can be diffed at once. The results aren't good, since
 "   vim compares all the files to each other. Undiffing in this case also
 "   doesn't do what is expected since it just restores every window.
-
-" DEFINITIONS
+"
+" }}}
+" {{{ DEFINITIONS
 
 let s:vcs_names = []
 let s:command_names = {} " {'vcsname' : ['DiffCommandName']}
@@ -27,7 +47,8 @@ if !exists('g:vcsdiff_cursor_new_window')
     let g:vcsdiff_cursor_new_window = 1
 endif
 
-" UTILITY FUNCTIONS
+" }}}
+" {{{ UTILITY FUNCTIONS
 
 " s:Strip(str) returns a copy of str with leading and trailing whitespace
 " removed.
@@ -67,7 +88,8 @@ function! s:SetBufName(name)
     exec 'silent file ' . fnameescape(a:name)
 endfunction
 
-" INNER WORKINGS
+" }}}
+" {{{ INNER WORKINGS
 
 function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs)
     call add(s:vcs_names, a:vcs_name)
@@ -165,7 +187,8 @@ endfunction
 
 command! VcsDiffList call s:List()
 
-" VCS FUNCTIONS
+" }}}
+" {{{ VCS FUNCTIONS
 
 function! s:GitUnmodified(path, args)
     if empty(a:args)
@@ -185,6 +208,9 @@ function! s:GitUnmodified(path, args)
     call s:SetBufName(fname . from)
 endfunction
 
-" VCS COMMANDS
+" }}}
+" {{{ VCS COMMANDS
 
 call s:AddVcsDiff('git', 'GitDiff', 's:GitUnmodified', '?')
+
+" }}}

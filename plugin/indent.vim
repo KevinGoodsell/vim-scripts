@@ -1,8 +1,29 @@
+" {{{ COPYRIGHT & LICENSE
+"
+" Copyright 2010 Kevin Goodsell
+"
+" This program is free software: you can redistribute it and/or modify it under
+" the terms of the GNU General Public License as published by the Free Software
+" Foundation, either version 3 of the License, or (at your option) any later
+" version.
+"
+" This program is distributed in the hope that it will be useful, but WITHOUT
+" ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+" FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+" details.
+"
+" You should have received a copy of the GNU General Public License along with
+" this program.  If not, see <http://www.gnu.org/licenses/>.
+"
+" }}}
+" {{{ DESCRIPTION
+"
 " This plugin attempts to detect the indent style (tabs or some number of
 " spaces) used in a file. It then sets options to be consistent with the
 " detected style. This is useful if you often edit files with dissimilar
 " indent styles.
 "
+" }}}
 " {{{ NOTES
 "
 " Here I use 'spaces-n' to indicate n-space indents, and 'emacs-n-m' to
@@ -38,7 +59,7 @@
 " If auto-detection isn't working right, you might get a hint about why by
 " looking at the b:indent_debug variable.
 "
-"}}}
+" }}}
 
 augroup IndentGuess
 au!
@@ -58,7 +79,7 @@ function! s:Debug(msg)
     endif
 endfunction
 
-" Note that :help 'ts' has some useful notes about this 
+" Note that :help 'ts' has some useful notes about this
 let s:indent_cmds = {
     \ 'tabs'      : 'setl sw=8 sts=0 noet',
     \ 'spaces-2'  : 'setl sw=2 sts=2 et',
