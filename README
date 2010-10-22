@@ -1,0 +1,33 @@
+Kevin Goodsell
+Thu, 21 Oct 2010 19:31:59 -0700
+
+ABOUT
+-----
+
+This is a collection of Vim scripts I've written, released as free
+software.
+
+SCRIPTS
+-------
+
+plugin/indent.vim
+
+  Detects the indent style for files being edited and sets options
+  accordingly. This does a fairly good job of detecting files using
+  spaces, tabs, or a combination of the two for indentation.
+
+plugin/vcsdiff.vim
+
+  Commands for viewing diffs of files in version control systems. Uses
+  Vim's internal diff mechanism to show differences between the edited
+  version of a file and checked-in versions. Only supports git at the
+  moment.
+
+syntax/hashes.vim
+
+  Syntax file for hash files, like those created by md5sum, sha1sum,
+  etc. Designed to help with comparing sets of files.
+
+scripts.vim
+
+  Syntax detection file for use with syntax/hashes.vim.
