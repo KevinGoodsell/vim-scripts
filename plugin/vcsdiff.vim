@@ -18,8 +18,6 @@
 " }}}
 " {{{ NOTES
 "
-" * Should add some kind of help string for each command.
-"
 " Known Bugs:
 " * After doing the diff, if the original window is split, closing the diff
 "   window only restores settings for one of the remaining diff windows.
@@ -32,6 +30,7 @@
 
 let s:vcs_names = []
 let s:command_names = {} " {'vcsname' : ['DiffCommandName']}
+let s:command_help = {} " {'DiffCommandName' : 'help string'}
 
 if exists('g:vcsdiff_include')
     let s:include = g:vcsdiff_include
@@ -88,14 +87,59 @@ function! s:SetBufName(name)
     exec 'silent file ' . fnameescape(a:name)
 endfunction
 
+" Helper for s:Wrap. Don't call directly.
+function! s:BuildLine(words, width, prefix)
+    let line = [a:words[0]]
+    let size = len(a:prefix) + len(a:words[0])
+    for word in a:words[1:]
+        let newsize = size + 1 + len(word)
+        if newsize > a:width
+            break
+        endif
+        call add(line, word)
+        let size = newsize
+    endfor
+
+    call remove(a:words, 0, len(line) - 1)
+    let linestr = a:prefix . join(line, ' ')
+
+    " A line made of a single long word can be too long. Break the word and
+    " put the remainder back in a:words.
+    if len(linestr) > a:width
+        " 'a:width:' looks like a variable name, so add a space before ':'
+        call insert(a:words, linestr[a:width :])
+        let linestr = linestr[:a:width - 1]
+    endif
+    return linestr
+endfunction
+
+" Wrap a string to the given width, indenting lines after the first.
+function! s:Wrap(str, width)
+    if a:width <= 2
+        throw "can't wrap to such a narrow width (" . a:width . " chars)"
+    endif
+
+    let words = split(a:str, '\v[ \t\n]+')
+    let lines = []
+
+    call add(lines, s:BuildLine(words, a:width, ''))
+
+    while len(words)
+        call add(lines, s:BuildLine(words, a:width, '  '))
+    endwhile
+
+    return join(lines, "\n")
+endfunction
+
 " }}}
 " {{{ INNER WORKINGS
 
-function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs)
+function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
     call add(s:vcs_names, a:vcs_name)
     let cmds = get(s:command_names, a:vcs_name, [])
     let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
     if index(s:include, a:vcs_name) != -1
+        let s:command_help[a:cmd_name] = a:help
         exe 'command! -nargs=' . a:nargs . ' ' . a:cmd_name .
             \ " call s:Diff('" . a:buffer_func . "', [<f-args>])"
     endif
@@ -185,7 +229,35 @@ function! s:List()
     endfor
 endfunction
 
+function! s:Help(...)
+    if empty(a:000)
+        let cmds = keys(s:command_help)
+    else
+        let cmds = copy(a:000)
+    endif
+    call sort(cmds)
+    for cmd in cmds
+        let help = get(s:command_help, cmd, '')
+        if len(help) == 0
+            echohl ErrorMsg
+            echo 'no help for ' . cmd
+            echohl None
+        else
+            " Use &columns - 1 because going the full screen width auto-wraps,
+            " leaving blank lines.
+            echo s:Wrap(help, &columns - 1)
+        endif
+    endfor
+endfunction
+
+function! s:HelpCompletion(arg_lead, cmd_line, cursor_pos)
+    let cmds = sort(keys(s:command_help))
+    return join(cmds, "\n")
+endfunction
+
 command! VcsDiffList call s:List()
+command! -nargs=* -complete=custom,s:HelpCompletion
+    \ VcsDiffHelp call s:Help(<f-args>)
 
 " }}}
 " {{{ VCS FUNCTIONS
@@ -211,6 +283,9 @@ endfunction
 " }}}
 " {{{ VCS COMMANDS
 
-call s:AddVcsDiff('git', 'GitDiff', 's:GitUnmodified', '?')
+let s:git_help = 'GitDiff [revision] - Diff against the specified revision '
+    \ . 'or, if no revision is given, the version in the index. Supports many '
+    \ . 'of the revision formats described in git-rev-parse(1).'
+call s:AddVcsDiff('git', 'GitDiff', 's:GitUnmodified', '?', s:git_help)
 
 " }}}
