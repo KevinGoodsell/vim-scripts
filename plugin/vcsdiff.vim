@@ -16,6 +16,35 @@
 " this program.  If not, see <http://www.gnu.org/licenses/>.
 "
 " }}}
+" {{{ COMMANDS
+"
+" VcsDiffList
+"   List available version control systems and commands for each.
+"
+" VcsDiffHelp [commands]
+"   Show help for the commands given, or all available commands if none are
+"   given.
+"
+" }}}
+" {{{ OPTIONS
+"
+" g:vcsdiff_include
+"   A list of version control system names. If defined, only commands for the
+"   given systems will be available. Leaving undefined makes all commands
+"   available.
+"
+" g:vcsdiff_new_win_prefix
+"   This is a Vim command that will be used as a prefix for the 'new' command
+"   when creating a new window. Used to determine where new windows appear.
+"   This could be 'vertical', 'leftabove', 'rightbelow', 'topleft',
+"   'bottomright', or any reasonable combination. Default is 'vertical'.
+"
+" g:vcsdiff_cursor_new_window
+"   Evaluated as a boolean. If true, when a new window is opened the cursor
+"   will be placed in the new window. If false, the cursor will remain in the
+"   current window. Default is true.
+"
+" }}}
 " {{{ NOTES
 "
 " Known Bugs:
