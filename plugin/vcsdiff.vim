@@ -157,6 +157,12 @@ function! s:Wrap(str, width)
     return join(lines, "\n")
 endfunction
 
+function! s:ErrorMsg(msg)
+    echohl ErrorMsg
+    echo a:msg
+    echohl None
+endfunction
+
 " }}}
 " {{{ INNER WORKINGS
 
@@ -173,9 +179,7 @@ endfunction
 
 function! s:Diff(funcname, args)
     if s:HasDiffBuffer()
-        echohl ErrorMsg
-        echo 'diff already active'
-        echohl None
+        call s:ErrorMsg('diff already active')
         return
     endif
 
@@ -282,9 +286,7 @@ function! s:Help(...)
     for cmd in cmds
         let help = get(s:command_help, cmd, '')
         if len(help) == 0
-            echohl ErrorMsg
-            echo 'no help for ' . cmd
-            echohl None
+            call s:ErrorMsg('no help for ' . cmd)
         else
             " Use &columns - 1 because going the full screen width auto-wraps,
             " leaving blank lines.
