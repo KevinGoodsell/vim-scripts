@@ -50,9 +50,6 @@
 " Known Bugs:
 " * After doing the diff, if the original window is split, closing the diff
 "   window only restores settings for one of the remaining diff windows.
-" * More than one file can be diffed at once. The results aren't good, since
-"   vim compares all the files to each other. Undiffing in this case also
-"   doesn't do what is expected since it just restores every window.
 "
 " }}}
 " {{{ DEFINITIONS
@@ -175,6 +172,13 @@ function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
 endfunction
 
 function! s:Diff(funcname, args)
+    if s:HasDiffBuffer()
+        echohl ErrorMsg
+        echo 'diff already active'
+        echohl None
+        return
+    endif
+
     let saveddir = getcwd()
     " Error handling is tricky, but just being in a try block makes vim throw
     " errors instead of reporting and continuing. See :help except-compat.
@@ -205,6 +209,7 @@ function! s:Diff(funcname, args)
             setlocal nomodifiable
             let &filetype = filetype
             diffthis
+            let b:vcsdiff_diffbuffer = 1
             autocmd BufWinLeave <buffer> call s:Undiff()
         catch
             " Close the new window, then propogate the error so it can be
@@ -227,6 +232,15 @@ function! s:Diff(funcname, args)
         " Clean up
         exec 'cd ' . saveddir
     endtry
+endfunction
+
+function! s:HasDiffBuffer()
+    let last_buf = bufnr('$')
+    for i in range(1, last_buf)
+        if getbufvar(i, 'vcsdiff_diffbuffer')
+            return 1
+        endif
+    endfor
 endfunction
 
 function! s:Undiff()
