@@ -205,7 +205,7 @@ function! s:Diff(funcname, args)
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
             set buftype=nofile bufhidden=wipe
-            exec 'call ' a:funcname "('" . filepath . "', a:args)"
+            exec 'call ' . a:funcname . "('" . filepath . "', a:args)"
             setlocal nomodifiable
             let &filetype = filetype
             diffthis
