@@ -325,6 +325,20 @@ function! s:GitUnmodified(path, args)
     call s:SetBufName(fname . from)
 endfunction
 
+function! s:HgUnmodified(path, args)
+    if empty(a:args)
+        let rev_arg = ""
+        let rev = "parent"
+    else
+        let rev_arg = " -r " . a:args[0]
+        let rev = "rev " . a:args[0]
+    endif
+    call s:ChFileDir(a:path)
+    let fname = fnamemodify(a:path, ":t")
+    call s:WriteCmdOutput("hg cat" . rev_arg . " " . fname)
+    call s:SetBufName(fname . " at " . rev)
+endfunction
+
 " }}}
 " {{{ VCS COMMANDS
 
@@ -332,5 +346,10 @@ let s:git_help = 'GitDiff [revision] - Diff against the specified revision '
     \ . 'or, if no revision is given, the version in the index. Supports many '
     \ . 'of the revision formats described in git-rev-parse(1).'
 call s:AddVcsDiff('git', 'GitDiff', 's:GitUnmodified', '?', s:git_help)
+
+let s:hg_help = "HgDiff [revision] - Diff against the specified revision or, "
+    \ . "if no revision is given, the version in the working directory's "
+    \ . "parent."
+call s:AddVcsDiff("hg", "HgDiff", "s:HgUnmodified", "?", s:hg_help)
 
 " }}}
