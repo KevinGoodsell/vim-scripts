@@ -84,9 +84,11 @@ endfunction
 " s:RunCmd() is a helper for functions that run a shell command. Don't call it
 " directly.
 function! s:RunCmd(cmd, write_output)
+    let stderr_temp = tempname()
     let saved_shellredir = &shellredir
-    set shellredir=>
     try
+        let &shellredir = ">%s 2>" . stderr_temp
+
         if a:write_output
             exec "read ! " . a:cmd
             let result = ""
@@ -94,10 +96,19 @@ function! s:RunCmd(cmd, write_output)
             let result = system(a:cmd)
         endif
 
+        let s:shell_stderr = s:Strip(join(readfile(stderr_temp), "\n"))
+
         if v:shell_error != 0
-            throw "command execution failed (error code " . v:shell_error . ")"
+            if len(s:shell_stderr) > 0 && len(s:shell_stderr) < 200
+                let msg = s:shell_stderr
+            else
+                let msg = "command execution failed (error code " .
+                        \ v:shell_error . ")"
+            endif
+            throw msg
         endif
     finally
+        call delete(stderr_temp)
         let &shellredir = saved_shellredir
     endtry
 
@@ -106,17 +117,17 @@ endfunction
 
 " s:WriteCmdOutput(cmd) executes a command and writes the output to the
 " current buffer without an extra empty line and without trashing registers.
-" This currently assumes the buffer is initially empty, and doesn't handle
-" errors as well as it could.
+" This currently assumes the buffer is initially empty.
 function! s:WriteCmdOutput(cmd)
     call s:RunCmd(a:cmd, 1)
-    " :read inserts below the cursor, leaving an empty line in a previously
-    " empty buffer. Delete the line without saving it in a register.
+    " RunCmd (using :read!) inserts below the cursor, leaving an empty line in
+    " a previously empty buffer. Delete the line without saving it in a
+    " register.
     normal gg"_dd
 endfunction
 
 " s:GetCmdOutput works like system(), but only returns stdout and throws on
-" error.
+" error. stderr can be retrieved from s:shell_stderr.
 function! s:GetCmdOutput(cmd)
     return s:RunCmd(a:cmd, 0)
 endfunction
