@@ -356,13 +356,13 @@ endfunction
 
 function! s:HgUnmodified(fname, args)
     if empty(a:args)
-        let rev_arg = ""
+        let rev_arg = " "
         let rev = "parent"
     else
-        let rev_arg = " -r " . a:args[0]
+        let rev_arg = "-r " . a:args[0]
         let rev = "rev " . a:args[0]
     endif
-    call s:WriteCmdOutput("hg cat" . rev_arg . " " . a:fname)
+    call s:WriteCmdOutput("hg cat " . rev_arg . a:fname)
     call s:SetBufName(a:fname . " at " . rev)
 endfunction
 
