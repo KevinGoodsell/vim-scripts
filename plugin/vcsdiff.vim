@@ -216,6 +216,9 @@ function! s:Diff(funcname, args)
     if s:HasDiffBuffer()
         call s:ErrorMsg("diff already active")
         return
+    elseif expand("%") == ""
+        call s:ErrorMsg("no file to diff")
+        return
     endif
 
     let saveddir = getcwd()
@@ -223,7 +226,6 @@ function! s:Diff(funcname, args)
     " errors instead of reporting and continuing. See :help except-compat.
     try
         " Gather info
-        let filepath = expand("%:p")
         let filetype = &filetype
         let w:vcsdiff_restore = "diffoff|"
             \ . "setlocal"
@@ -236,8 +238,8 @@ function! s:Diff(funcname, args)
 
         " Most systems will require being in the directory of the file, or at
         " least in the repository working dir.
-        exec "cd " . fnamemodify(filepath, ":h")
-        let fname = fnamemodify(filepath, ":t")
+        exec "cd " . expand("%:h")
+        let fname = expand("%:t")
 
         " Prepare starting buffer
         diffthis
