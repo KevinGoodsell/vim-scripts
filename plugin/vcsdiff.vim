@@ -121,11 +121,6 @@ function! s:GetCmdOutput(cmd)
     return s:RunCmd(a:cmd, 0)
 endfunction
 
-" s:ChFileDir changes directory to the directory containing the file.
-function! s:ChFileDir(path)
-    exe "cd " . fnamemodify(a:path, ":h")
-endfunction
-
 " There's no rethrow in vim, and the standard way to emulate it, by throwing
 " v:exception, fails with vim errors (see :help rethrow). This is a
 " work-around.
@@ -228,6 +223,11 @@ function! s:Diff(funcname, args)
             \ . " foldmethod=" . &foldmethod
             \ . " foldcolumn=" . &foldcolumn
 
+        " Most systems will require being in the directory of the file, or at
+        " least in the repository working dir.
+        exec "cd " . fnamemodify(filepath, ":h")
+        let fname = fnamemodify(filepath, ":t")
+
         " Prepare starting buffer
         diffthis
 
@@ -238,7 +238,7 @@ function! s:Diff(funcname, args)
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
             set buftype=nofile bufhidden=wipe
-            exec "call " . a:funcname . "('" . filepath . "', a:args)"
+            exec "call " . a:funcname . "('" . fname . "', a:args)"
             setlocal nomodifiable
             let &filetype = filetype
             diffthis
@@ -336,7 +336,7 @@ command! -nargs=* -complete=custom,s:HelpCompletion
 " }}}
 " {{{ VCS FUNCTIONS
 
-function! s:GitUnmodified(path, args)
+function! s:GitUnmodified(fname, args)
     if empty(a:args)
         let revision = ""
         let from = " from index"
@@ -344,19 +344,17 @@ function! s:GitUnmodified(path, args)
         let revision = a:args[0]
         let from = " from " . revision
     endif
-    call s:ChFileDir(a:path)
     try
         let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
     catch
         throw "git rev-parse command failed. Not a git repo?"
     endtry
-    let fname = fnamemodify(a:path, ":t")
-    call s:WriteCmdOutput("git show \"" . revision . ":" . prefix . fname .
+    call s:WriteCmdOutput("git show \"" . revision . ":" . prefix . a:fname .
                         \ "\"")
-    call s:SetBufName(fname . from)
+    call s:SetBufName(a:fname . from)
 endfunction
 
-function! s:HgUnmodified(path, args)
+function! s:HgUnmodified(fname, args)
     if empty(a:args)
         let rev_arg = ""
         let rev = "parent"
@@ -364,10 +362,8 @@ function! s:HgUnmodified(path, args)
         let rev_arg = " -r " . a:args[0]
         let rev = "rev " . a:args[0]
     endif
-    call s:ChFileDir(a:path)
-    let fname = fnamemodify(a:path, ":t")
-    call s:WriteCmdOutput("hg cat" . rev_arg . " " . fname)
-    call s:SetBufName(fname . " at " . rev)
+    call s:WriteCmdOutput("hg cat" . rev_arg . " " . a:fname)
+    call s:SetBufName(a:fname . " at " . rev)
 endfunction
 
 " }}}
