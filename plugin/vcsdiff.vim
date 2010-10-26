@@ -259,7 +259,7 @@ function! s:Diff(funcname, args)
         " Undo any changes made to the original buffer and window, then
         " propagate the error so it can be reported.
         call s:Undiff()
-        call s:Rethrow()
+        call s:ErrorMsg(v:exception)
 
     finally
         " Clean up
