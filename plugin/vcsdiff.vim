@@ -81,15 +81,44 @@ function! s:Strip(str)
     return substitute(a:str, '\v^[ \t\r\n]*(.{-})[ \t\r\n]*$', '\1', "")
 endfunction
 
+" s:RunCmd() is a helper for functions that run a shell command. Don't call it
+" directly.
+function! s:RunCmd(cmd, write_output)
+    let saved_shellredir = &shellredir
+    set shellredir=>
+    try
+        if a:write_output
+            exec "read ! " . a:cmd
+            let result = ""
+        else
+            let result = system(a:cmd)
+        endif
+
+        if v:shell_error != 0
+            throw "command execution failed (error code " . v:shell_error . ")"
+        endif
+    finally
+        let &shellredir = saved_shellredir
+    endtry
+
+    return result
+endfunction
+
 " s:WriteCmdOutput(cmd) executes a command and writes the output to the
 " current buffer without an extra empty line and without trashing registers.
 " This currently assumes the buffer is initially empty, and doesn't handle
 " errors as well as it could.
 function! s:WriteCmdOutput(cmd)
-    exec "read ! " . a:cmd
+    call s:RunCmd(a:cmd, 1)
     " :read inserts below the cursor, leaving an empty line in a previously
     " empty buffer. Delete the line without saving it in a register.
     normal gg"_dd
+endfunction
+
+" s:GetCmdOutput works like system(), but only returns stdout and throws on
+" error.
+function! s:GetCmdOutput(cmd)
+    return s:RunCmd(a:cmd, 0)
 endfunction
 
 " s:ChFileDir changes directory to the directory containing the file.
@@ -316,10 +345,11 @@ function! s:GitUnmodified(path, args)
         let from = " from " . revision
     endif
     call s:ChFileDir(a:path)
-    let prefix = s:Strip(system("git rev-parse --show-prefix"))
-    if v:shell_error != 0
+    try
+        let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
+    catch
         throw "git rev-parse command failed. Not a git repo?"
-    endif
+    endtry
     let fname = fnamemodify(a:path, ":t")
     call s:WriteCmdOutput("git show \"" . revision . ":" . prefix . fname .
                         \ "\"")
