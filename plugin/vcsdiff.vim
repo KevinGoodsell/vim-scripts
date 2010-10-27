@@ -362,8 +362,8 @@ function! s:GitUnmodified(fname, args)
     catch
         throw "git rev-parse command failed. Not a git repo?"
     endtry
-    call s:WriteCmdOutput(printf("git show \"%s:%s%s\"", revision, prefix,
-                               \ a:fname))
+    let arg = shellescape(printf("%s:%s%s", revision, prefix, a:fname))
+    call s:WriteCmdOutput("git show " . arg)
     call s:SetBufName(a:fname . from)
 endfunction
 
@@ -372,10 +372,11 @@ function! s:HgUnmodified(fname, args)
         let rev_arg = ""
         let rev = "parent"
     else
-        let rev_arg = "-r " . a:args[0]
+        let rev_arg = "-r " . shellescape(a:args[0])
         let rev = "rev " . a:args[0]
     endif
-    call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg, a:fname))
+    call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg,
+                        \ shellescape(a:fname)))
     call s:SetBufName(printf("%s at %s", a:fname, rev))
 endfunction
 
