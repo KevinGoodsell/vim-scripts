@@ -207,8 +207,8 @@ function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
     let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
     if index(s:include, a:vcs_name) != -1
         let s:command_help[a:cmd_name] = a:help
-        exe printf("command! -nargs=%s %s call s:Diff('%s', [<f-args>])",
-                 \ a:nargs, a:cmd_name, a:buffer_func)
+        exec printf("command! -nargs=%s %s call s:Diff('%s', [<f-args>])",
+                  \ a:nargs, a:cmd_name, a:buffer_func)
     endif
 endfunction
 
@@ -238,7 +238,7 @@ function! s:Diff(funcname, args)
 
         " Most systems will require being in the directory of the file, or at
         " least in the repository working dir.
-        exec "cd " . expand("%:h")
+        exec "cd " . fnameescape(expand("%:h"))
         let fname = expand("%:t")
 
         " Prepare starting buffer
@@ -251,7 +251,7 @@ function! s:Diff(funcname, args)
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
             set buftype=nofile bufhidden=wipe
-            exec printf("call %s('%s', a:args)", a:funcname, fname)
+            call call(a:funcname, [fname, a:args])
             setlocal nomodifiable
             let &filetype = filetype
             diffthis
@@ -276,7 +276,7 @@ function! s:Diff(funcname, args)
 
     finally
         " Clean up
-        exec "cd " . saveddir
+        exec "cd " . fnameescape(saveddir)
     endtry
 endfunction
 
