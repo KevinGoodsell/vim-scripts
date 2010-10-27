@@ -102,8 +102,8 @@ function! s:RunCmd(cmd, write_output)
             if len(s:shell_stderr) > 0 && len(s:shell_stderr) < 200
                 let msg = s:shell_stderr
             else
-                let msg = "command execution failed (error code " .
-                        \ v:shell_error . ")"
+                let msg = printf("command execution failed (error code %d)",
+                               \ v:shell_error)
             endif
             throw msg
         endif
@@ -177,7 +177,7 @@ endfunction
 " Wrap a string to the given width, indenting lines after the first.
 function! s:Wrap(str, width)
     if a:width <= 2
-        throw "can't wrap to such a narrow width (" . a:width . " chars)"
+        throw printf("can't wrap to such a narrow width (%d chars)", a:width)
     endif
 
     let words = split(a:str, '\v[ \t\n]+')
@@ -207,8 +207,8 @@ function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
     let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
     if index(s:include, a:vcs_name) != -1
         let s:command_help[a:cmd_name] = a:help
-        exe "command! -nargs=" . a:nargs . " " . a:cmd_name .
-            \ " call s:Diff('" . a:buffer_func . "', [<f-args>])"
+        exe printf("command! -nargs=%s %s call s:Diff('%s', [<f-args>])",
+                 \ a:nargs, a:cmd_name, a:buffer_func)
     endif
 endfunction
 
@@ -251,7 +251,7 @@ function! s:Diff(funcname, args)
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
             set buftype=nofile bufhidden=wipe
-            exec "call " . a:funcname . "('" . fname . "', a:args)"
+            exec printf("call %s('%s', a:args)", a:funcname, fname)
             setlocal nomodifiable
             let &filetype = filetype
             diffthis
@@ -310,11 +310,11 @@ function! s:List()
     echo "Supported Version Control Systems (* = currently enabled)"
     for [name, cmds] in items(s:command_names)
         if index(s:include, name) != -1
-            let used = "* "
+            let used = "*"
         else
-            let used = "  "
+            let used = " "
         endif
-        echo used . name . " (" . join(cmds, ", ") . ")"
+        echo printf("%s %s (%s)", used, name, join(cmds, ", "))
     endfor
 endfunction
 
@@ -362,21 +362,21 @@ function! s:GitUnmodified(fname, args)
     catch
         throw "git rev-parse command failed. Not a git repo?"
     endtry
-    call s:WriteCmdOutput("git show \"" . revision . ":" . prefix . a:fname .
-                        \ "\"")
+    call s:WriteCmdOutput(printf("git show \"%s:%s%s\"", revision, prefix,
+                               \ a:fname))
     call s:SetBufName(a:fname . from)
 endfunction
 
 function! s:HgUnmodified(fname, args)
     if empty(a:args)
-        let rev_arg = " "
+        let rev_arg = ""
         let rev = "parent"
     else
         let rev_arg = "-r " . a:args[0]
         let rev = "rev " . a:args[0]
     endif
-    call s:WriteCmdOutput("hg cat " . rev_arg . a:fname)
-    call s:SetBufName(a:fname . " at " . rev)
+    call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg, a:fname))
+    call s:SetBufName(printf("%s at %s", a:fname, rev))
 endfunction
 
 " }}}
