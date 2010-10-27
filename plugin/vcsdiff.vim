@@ -376,7 +376,20 @@ function! s:HgUnmodified(fname, args)
         let rev = "rev " . a:args[0]
     endif
     call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg,
-                        \ shellescape(a:fname)))
+                               \ shellescape(a:fname)))
+    call s:SetBufName(printf("%s at %s", a:fname, rev))
+endfunction
+
+function! s:SvnUnmodified(fname, args)
+    if empty(a:args)
+        let rev_arg = ""
+        let rev = "HEAD"
+    else
+        let rev_arg = "-r " . shellescape(a:args[0])
+        let rev = "rev " . a:args[0]
+    endif
+    call s:WriteCmdOutput(printf("svn cat %s %s", rev_arg,
+                               \ shellescape(a:fname)))
     call s:SetBufName(printf("%s at %s", a:fname, rev))
 endfunction
 
@@ -392,5 +405,10 @@ let s:hg_help = "HgDiff [revision] - Diff against the specified revision or, "
     \ . "if no revision is given, the version in the working directory's "
     \ . "parent."
 call s:AddVcsDiff("hg", "HgDiff", "s:HgUnmodified", "?", s:hg_help)
+
+let s:svn_help = "SvnDiff [revision] - Diff against the specified revision "
+    \ . "or, if no revision is given, the version in HEAD. Supports revision "
+    \ . "formats for svn's -r option."
+call s:AddVcsDiff("svn", "SvnDiff", "s:SvnUnmodified", "?", s:svn_help)
 
 " }}}

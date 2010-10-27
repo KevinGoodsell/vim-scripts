@@ -20,8 +20,8 @@ plugin/vcsdiff.vim
 
   Commands for viewing diffs of files in version control systems. Uses
   Vim's internal diff mechanism to show differences between the edited
-  version of a file and checked-in versions. Only supports git at the
-  moment.
+  version of a file and checked-in versions. Currently supports Git,
+  Mercurial, and Subversion.
 
 syntax/hashes.vim
 
