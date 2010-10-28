@@ -149,8 +149,9 @@ endfunction
 " work-around.
 function! s:Rethrow()
     if v:exception =~# '\v^Vim'
-        " Can't throw this directly
-        echoerr v:exception
+        " Can't throw this directly, but also don't want to add a new prefix
+        " on every rethrow.
+        echoerr substitute(v:exception, '\v^Vim\(echoerr\):', '', '')
     endif
     throw v:exception
 endfunction
@@ -204,9 +205,9 @@ function! s:Wrap(str, width)
     return join(lines, "\n")
 endfunction
 
+" Show an error message with ErrorMsg highlighting, also saving in :messages.
+" It may be necessary to :redraw first if the screen is being updated.
 function! s:ErrorMsg(msg)
-    " Force a redraw first do avoid redrawing over the message.
-    redraw
     echohl ErrorMsg
     echomsg a:msg
     echohl None
@@ -287,6 +288,9 @@ function! s:Diff(funcname, args)
         " Undo any changes made to the original buffer and window, then report
         " the error.
         call s:Undiff()
+        " Error messages may be hidden when the redraw occurs, so force it
+        " now.
+        redraw
         call s:ErrorMsg(v:exception)
 
     finally
