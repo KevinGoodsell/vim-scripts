@@ -371,25 +371,31 @@ let s:rev_info_failed_msg = "[failed to get rev info]"
 
 function! s:GitUnmodified(fname, args)
     if empty(a:args)
-        let revision = ""
-        let rev_arg = ""
+        " Diffing against index version
+        let commit = ""
     else
-        let revision = a:args[0]
-        let rev_arg = shellescape(a:args[0])
+        " Diffing against a specific revision
+        let cmd = "git rev-parse " . shellescape(a:args[0])
+        let commit = s:Strip(s:GetCmdOutput(cmd))
     endif
+
     let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
-    let arg = shellescape(printf("%s:%s%s", revision, prefix, a:fname))
+    let arg = shellescape(printf("%s:%s%s", commit, prefix, a:fname))
     call s:WriteCmdOutput("git show " . arg)
 
-    try
-        let format = shellescape("--pretty=format:[%h|%an|%ar|%s]")
-        let cmd = printf("git log -1 %s %s", format, rev_arg)
-        let extra = s:Strip(s:GetCmdOutput(cmd))
-    catch
-        let extra = s:rev_info_failed_msg
-    endtry
+    if empty(a:args)
+        let rev_info = "[index version]"
+    else
+        try
+            let format = shellescape("--pretty=format:[%h|%an|%ar|%s]")
+            let cmd = printf("git log -1 %s %s", format, commit)
+            let rev_info = s:Strip(s:GetCmdOutput(cmd))
+        catch
+            let rev_info = s:rev_info_failed_msg
+        endtry
+    endif
 
-    call s:SetBufName(printf("%s %s", a:fname, extra))
+    call s:SetBufName(printf("%s %s", a:fname, rev_info))
 endfunction
 
 function! s:HgUnmodified(fname, args)
