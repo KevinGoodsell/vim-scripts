@@ -198,7 +198,7 @@ function! s:Wrap(str, width)
 
     call add(lines, s:BuildLine(words, a:width, ""))
 
-    while len(words)
+    while !empty(words)
         call add(lines, s:BuildLine(words, a:width, "  "))
     endwhile
 
@@ -345,7 +345,7 @@ function! s:Help(...)
     endif
     for cmd in cmds
         let help = get(s:command_help, cmd, "")
-        if len(help) == 0
+        if help == ""
             call s:ErrorMsg("no help for " . cmd)
         else
             " Use &columns - 1 because going the full screen width auto-wraps,
