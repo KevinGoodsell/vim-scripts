@@ -123,7 +123,7 @@ function! s:WriteCmdOutput(cmd)
     " RunCmd (using :read!) inserts below the cursor, leaving an empty line in
     " a previously empty buffer. Delete the line without saving it in a
     " register.
-    normal gg"_dd
+    1 delete _
 endfunction
 
 " s:GetCmdOutput works like system(), but only returns stdout and throws on
@@ -250,10 +250,10 @@ function! s:Diff(funcname, args)
             " See :help special-buffers. For bufhidden, only hide or wipe seem
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
-            set buftype=nofile bufhidden=wipe
+            setlocal buftype=nofile bufhidden=wipe
             call call(a:funcname, [fname, a:args])
             setlocal nomodifiable
-            let &filetype = filetype
+            let &l:filetype = filetype
             diffthis
             let b:vcsdiff_diffbuffer = 1
             autocmd BufWinLeave <buffer> call s:Undiff()
