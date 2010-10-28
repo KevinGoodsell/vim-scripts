@@ -396,14 +396,27 @@ endfunction
 function! s:SvnUnmodified(fname, args)
     if empty(a:args)
         let rev_arg = ""
-        let rev = "HEAD"
     else
         let rev_arg = "-r " . shellescape(a:args[0])
-        let rev = "rev " . a:args[0]
     endif
-    call s:WriteCmdOutput(printf("svn cat %s %s", rev_arg,
-                               \ shellescape(a:fname)))
-    call s:SetBufName(printf("%s at %s", a:fname, rev))
+    let cmd_args = printf("%s %s", rev_arg, shellescape(a:fname))
+    call s:WriteCmdOutput("svn cat " . cmd_args)
+
+    try
+        let log = s:GetCmdOutput("svn log -l 1 " . cmd_args)
+        let pieces = matchlist(log, '\v\n(r\d+) \| (.+) \| (.+) \|')
+        if len(pieces) >= 4
+            let extra = printf(" [%s|%s|%s]", pieces[1], pieces[2], pieces[3])
+        endif
+    catch
+        " For debugging:
+        "call s:Rethrow()
+    endtry
+    if !exists("extra")
+        let extra = " [failed to get rev info]"
+    endif
+
+    call s:SetBufName(a:fname . extra)
 endfunction
 
 " }}}
