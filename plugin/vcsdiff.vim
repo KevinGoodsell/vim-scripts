@@ -205,8 +205,10 @@ function! s:Wrap(str, width)
 endfunction
 
 function! s:ErrorMsg(msg)
+    " Force a redraw first do avoid redrawing over the message.
+    redraw
     echohl ErrorMsg
-    echo a:msg
+    echomsg a:msg
     echohl None
 endfunction
 
@@ -282,8 +284,8 @@ function! s:Diff(funcname, args)
         endif
 
     catch
-        " Undo any changes made to the original buffer and window, then
-        " propagate the error so it can be reported.
+        " Undo any changes made to the original buffer and window, then report
+        " the error.
         call s:Undiff()
         call s:ErrorMsg(v:exception)
 
