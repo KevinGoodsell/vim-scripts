@@ -44,6 +44,12 @@
 "   will be placed in the new window. If false, the cursor will remain in the
 "   current window. Default is true.
 "
+" g:vcsdiff_statusline
+"   Value used for 'statusline' in diff buffers. It's good to keep this sparse
+"   so there's room for extra info about the revision, etc. The filename (%f)
+"   should always be included, since that's where the extra info actually
+"   comes from.
+"
 " }}}
 " {{{ NOTES
 "
@@ -70,6 +76,12 @@ endif
 
 if !exists("g:vcsdiff_cursor_new_window")
     let g:vcsdiff_cursor_new_window = 1
+endif
+
+if !exists("g:vcsdiff_statusline")
+    " This is designed to leave as much room as possible, and truncate on the
+    " right if necessary.
+    let g:vcsdiff_statusline = "%f%<"
 endif
 
 " }}}
@@ -251,6 +263,7 @@ function! s:Diff(funcname, args)
             " to make any sense. Otherwise the buffer is unloaded and anything
             " that's left isn't useful.
             setlocal buftype=nofile bufhidden=wipe
+            let &l:statusline = g:vcsdiff_statusline
             call call(a:funcname, [fname, a:args])
             setlocal nomodifiable
             let &l:filetype = filetype
