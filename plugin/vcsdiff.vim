@@ -388,14 +388,24 @@ endfunction
 function! s:HgUnmodified(fname, args)
     if empty(a:args)
         let rev_arg = ""
-        let rev = "parent"
     else
         let rev_arg = "-r " . shellescape(a:args[0])
-        let rev = "rev " . a:args[0]
     endif
-    call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg,
-                               \ shellescape(a:fname)))
-    call s:SetBufName(printf("%s at %s", a:fname, rev))
+    let cmd_args = printf("%s %s", rev_arg, shellescape(a:fname))
+    call s:WriteCmdOutput("hg cat " . cmd_args)
+
+    try
+        let template = "[r:{rev}|br:{branches|nonempty}|{author|person}"
+                   \ . "|{date|age}|{desc|firstline}]"
+        let extra_cmd = printf("hg log -l 1 --template %s %s",
+                             \ shellescape(template), cmd_args)
+        let extra = s:Strip(s:GetCmdOutput(extra_cmd))
+    catch
+        "call s:Rethrow()
+        let extra = "[failed to get rev info]"
+    endtry
+
+    call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
 
 function! s:SvnUnmodified(fname, args)
