@@ -367,6 +367,8 @@ command! -nargs=* -complete=custom,s:HelpCompletion
 " }}}
 " {{{ VCS FUNCTIONS
 
+let s:rev_info_failed_msg = "[failed to get rev info]"
+
 function! s:GitUnmodified(fname, args)
     if empty(a:args)
         let revision = ""
@@ -384,7 +386,7 @@ function! s:GitUnmodified(fname, args)
         let cmd = printf("git log -1 %s %s", format, rev_arg)
         let extra = s:Strip(s:GetCmdOutput(cmd))
     catch
-        let extra = "[failed to get rev info]"
+        let extra = s:rev_info_failed_msg
     endtry
 
     call s:SetBufName(printf("%s %s", a:fname, extra))
@@ -407,7 +409,7 @@ function! s:HgUnmodified(fname, args)
         let extra = s:Strip(s:GetCmdOutput(extra_cmd))
     catch
         "call s:Rethrow()
-        let extra = "[failed to get rev info]"
+        let extra = s:rev_info_failed_msg
     endtry
 
     call s:SetBufName(printf("%s %s", a:fname, extra))
@@ -426,17 +428,17 @@ function! s:SvnUnmodified(fname, args)
         let log = s:GetCmdOutput("svn log -l 1 " . cmd_args)
         let pieces = matchlist(log, '\v\n(r\d+) \| (.+) \| (.+) \|')
         if len(pieces) >= 4
-            let extra = printf(" [%s|%s|%s]", pieces[1], pieces[2], pieces[3])
+            let extra = printf("[%s|%s|%s]", pieces[1], pieces[2], pieces[3])
         endif
     catch
         " For debugging:
         "call s:Rethrow()
     endtry
     if !exists("extra")
-        let extra = " [failed to get rev info]"
+        let extra = s:rev_info_failed_msg
     endif
 
-    call s:SetBufName(a:fname . extra)
+    call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
 
 " }}}
