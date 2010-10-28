@@ -427,7 +427,7 @@ function! s:SvnUnmodified(fname, args)
     try
         let log = s:GetCmdOutput("svn log -l 1 " . cmd_args)
         let pieces = matchlist(log, '\v\n(r\d+) \| (.+) \| (.+) \|')
-        if len(pieces) >= 4
+        if !empty(pieces)
             let extra = printf("[%s|%s|%s]", pieces[1], pieces[2], pieces[3])
         endif
     catch
