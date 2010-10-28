@@ -370,19 +370,24 @@ command! -nargs=* -complete=custom,s:HelpCompletion
 function! s:GitUnmodified(fname, args)
     if empty(a:args)
         let revision = ""
-        let from = " from index"
+        let rev_arg = ""
     else
         let revision = a:args[0]
-        let from = " from " . revision
+        let rev_arg = shellescape(a:args[0])
     endif
-    try
-        let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
-    catch
-        throw "git rev-parse command failed. Not a git repo?"
-    endtry
+    let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
     let arg = shellescape(printf("%s:%s%s", revision, prefix, a:fname))
     call s:WriteCmdOutput("git show " . arg)
-    call s:SetBufName(a:fname . from)
+
+    try
+        let format = shellescape("--pretty=format:[%h|%an|%ar|%s]")
+        let cmd = printf("git log -1 %s %s", format, rev_arg)
+        let extra = s:Strip(s:GetCmdOutput(cmd))
+    catch
+        let extra = "[failed to get rev info]"
+    endtry
+
+    call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
 
 function! s:HgUnmodified(fname, args)
