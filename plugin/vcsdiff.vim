@@ -335,11 +335,10 @@ endfunction
 
 function! s:Help(...)
     if empty(a:000)
-        let cmds = keys(s:command_help)
+        let cmds = sort(keys(s:command_help))
     else
-        let cmds = copy(a:000)
+        let cmds = a:000
     endif
-    call sort(cmds)
     for cmd in cmds
         let help = get(s:command_help, cmd, "")
         if len(help) == 0
