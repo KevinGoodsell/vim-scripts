@@ -26,6 +26,11 @@
 " invocations of RunLine because each uses a new Python interpreter which
 " exits upon completion.
 "
+" I recommend adding a mapping to execute RunLine quickly. For example, I have
+" this in my .vimrc:
+"
+" nmap <Leader><CR> :RunLine<CR>
+"
 " }}}
 
 if !executable("python")
