@@ -23,6 +23,11 @@ plugin/vcsdiff.vim
   version of a file and checked-in versions. Currently supports Git,
   Mercurial, and Subversion.
 
+plugin/runline.vim
+
+  Command for evaluating a line as Python code, writing the result into
+  the buffer. Useful for quick calculations.
+
 syntax/hashes.vim
 
   Syntax file for hash files, like those created by md5sum, sha1sum,
