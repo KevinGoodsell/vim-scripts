@@ -18,8 +18,8 @@
 " }}}
 " {{{ NOTES
 "
-" BUG: It's not clear xxd will ever report a writing error, therefore writing
-" could fail while appearing to succeed.
+" BUG: xxd isn't good at detecting write errors, therefore writing could fail
+" while appearing to succeed.
 "
 " BUG: :saveas and :file don't work properly in a hex buffer. This could
 " possibly be fixed by adding the BufFilePre autocmd.
@@ -27,8 +27,8 @@
 " }}}
 
 " XXX Work-around the Vim end-of-line bug. (Still necessary?)
-" XXX Breaks with non-existing file or unnamed buffer.
-" - Interestingly, enew has no effect when already in a new buffer.
+" XXX :write foo overwrites foo without asking.
+" XXX Need to test with :cd
 
 " Vim has no rethrow.
 function! s:Rethrow()
@@ -52,8 +52,8 @@ function! s:HexToggle(bang)
     " The 'try' block turns errors into exceptions. See :help except-compat.
     try
         if &modified && a:bang != "!"
-            " Cause a familiar error
-            " XXX What if 'autowriteall' is set?
+            " Cause a familiar error (unless 'autowriteall' is set, in which
+            " case this succeeds as expected).
             edit
         endif
 
@@ -69,11 +69,16 @@ function! s:HexToggle(bang)
             return
         endif
 
+        " This checks for empty filenames and non-existing files.
+        if glob(expand("%")) == ""
+            echoerr "file doesn't exist (write to a file first!)"
+        endif
+
+        " Set up the original buffer.
+
         " We don't need to change filetype, but for some reason syntax
         " highlighting gets lost if we don't set it when restoring settings.
         let saved_settings = [&modifiable, &filetype, &bufhidden]
-        let fname = expand("%")
-        let original_bufnr = bufnr("")
 
         " We can't really notify the user of changes made in the original
         " buffer, so make it nonmodifiable as a safeguard. This will be
@@ -82,38 +87,45 @@ function! s:HexToggle(bang)
         " Don't unload the original buffer, it loses undo history.
         setlocal bufhidden=hide
 
-        " Create and set up the new buffer
-        exec "enew" . a:bang
-        try
-            let b:hex_original_bufnr = original_bufnr
-            set buftype=acwrite bufhidden=wipe
-            exec printf("silent file %s [hex]", fnameescape(fname))
-            augroup HexEdit
-                let pathstr = string(fnamemodify(fname, ":p"))
-                exec printf("au BufWriteCmd <buffer> call s:HexWrite(%s)",
-                          \ pathstr)
-                exec printf("au BufReadCmd <buffer> call s:HexRead(%s)",
-                          \ pathstr)
-                exec printf("au BufWinLeave <buffer> call " .
-                          \ "s:HexRestore(%d, %s)",
-                          \ original_bufnr, string(saved_settings))
-            augroup END
-
-            " Load the file from disk, via s:HexRead.
-            edit
-        catch
-            " Restore original buffer, destroy the new buffer.
-            let broken_bufnr = bufnr("")
-            exec "buffer! " . original_bufnr
-            if bufexists(broken_bufnr)
-                exec "bwipeout! " . broken_bufnr
-            endif
-            call s:Rethrow()
-        endtry
+        " Create the new hex buffer.
+        call HexNewBuffer(a:bang, saved_settings)
     catch
         " Restore original buffer settings.
         if exists("saved_settings")
             let [&l:modifiable, &l:filetype, &l:bufhidden] = saved_settings
+        endif
+        call s:Rethrow()
+    endtry
+endfunction
+
+function! HexNewBuffer(bang, saved_settings)
+    " Create and set up the new buffer
+    let original_bufnr = bufnr("")
+    let fname = expand("%")
+    exec "enew" . a:bang
+    try
+        let b:hex_original_bufnr = original_bufnr
+        set buftype=acwrite bufhidden=wipe
+        exec printf("silent file %s [hex]", fnameescape(fname))
+        augroup HexEdit
+            let pathstr = string(fnamemodify(fname, ":p"))
+            exec printf("au BufWriteCmd <buffer> call s:HexWrite(%s)",
+                      \ pathstr)
+            exec printf("au BufReadCmd <buffer> call s:HexRead(%s)",
+                      \ pathstr)
+            exec printf("au BufWinLeave <buffer> call " .
+                      \ "s:HexRestore(%d, %s)",
+                      \ original_bufnr, string(a:saved_settings))
+        augroup END
+
+        " Load the file from disk, via s:HexRead.
+        edit
+    catch
+        " Restore original buffer, destroy the new buffer.
+        let broken_bufnr = bufnr("")
+        exec "buffer! " . original_bufnr
+        if bufexists(broken_bufnr)
+            exec "bwipeout! " . broken_bufnr
         endif
         call s:Rethrow()
     endtry
@@ -131,6 +143,7 @@ function! s:HexWrite(fpath)
     exec "silent write !xxd -r > " . fnameescape(target)
     if v:shell_error != 0
         echoerr "failed to write file " . string(target)
+        return
     endif
 
     " Only reset 'modified' if the file being written is the same one loaded
