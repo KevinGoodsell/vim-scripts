@@ -27,9 +27,6 @@
 " }}}
 
 " XXX Work-around the Vim end-of-line bug. (Still necessary?)
-" XXX Need to test with :cd
-" XXX It would be nice if errors were caught and written nicely at the end of
-" HexToggle.
 
 " Vim has no rethrow.
 function! s:Rethrow()
@@ -95,7 +92,12 @@ function! s:HexToggle(bang)
         if exists("saved_settings")
             let [&l:modifiable, &l:filetype, &l:bufhidden] = saved_settings
         endif
-        call s:Rethrow()
+
+        " Show the error message in a nice way.
+        redraw
+        echohl ErrorMsg
+        echomsg v:exception
+        echohl NONE
     endtry
 endfunction
 
@@ -124,7 +126,9 @@ function! HexNewBuffer(bang, saved_settings)
     catch
         " Restore original buffer, destroy the new buffer.
         let broken_bufnr = bufnr("")
-        exec "buffer! " . original_bufnr
+        " For some reason, not silencing this prevents the final echo'ed error
+        " message from being seen, even with a redraw before it.
+        exec "silent buffer! " . original_bufnr
         if bufexists(broken_bufnr)
             exec "bwipeout! " . broken_bufnr
         endif
