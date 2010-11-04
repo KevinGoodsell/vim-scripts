@@ -27,8 +27,9 @@
 " }}}
 
 " XXX Work-around the Vim end-of-line bug. (Still necessary?)
-" XXX :write foo overwrites foo without asking.
 " XXX Need to test with :cd
+" XXX It would be nice if errors were caught and written nicely at the end of
+" HexToggle.
 
 " Vim has no rethrow.
 function! s:Rethrow()
@@ -132,26 +133,35 @@ function! HexNewBuffer(bang, saved_settings)
 endfunction
 
 function! s:HexWrite(fpath)
-    let target = expand("<afile>")
-    let same_file = (target == expand("%"))
+    try
+        let target = expand("<afile>")
+        let same_file = (target == expand("%"))
 
-    if same_file
-        " Redirect to the real file, not 'filename [hex]'
-        let target = a:fpath
-    endif
+        if same_file
+            " Redirect to the real file, not 'filename [hex]'
+            let target = a:fpath
+        endif
 
-    exec "silent write !xxd -r > " . fnameescape(target)
-    if v:shell_error != 0
-        echoerr "failed to write file " . string(target)
-        return
-    endif
+        " Don't overwrite an existing file unless forced.
+        if !same_file && !v:cmdbang && glob(target) != ""
+            " It seems like this should produce the expected error, but for
+            " some reason it succeeds instead. No idea why.
+            "exec "write " . fnameescape(target)
+            echoerr "File exists (add ! to override)"
+        endif
 
-    " Only reset 'modified' if the file being written is the same one loaded
-    " in the buffer (e.g., using ':w' and not ':w otherfile'), or if the '+'
-    " flag is included in 'cpoptions'.
-    if same_file || stridx(&cpoptions, "+") >= 0
-        set nomodified
-    endif
+        exec "silent write !xxd -r > " . fnameescape(target)
+        if v:shell_error != 0
+            echoerr "failed to write file " . string(target)
+        endif
+
+        " Only reset 'modified' if the file being written is the same one
+        " loaded in the buffer (e.g., using ':w' and not ':w otherfile'), or
+        " if the '+' flag is included in 'cpoptions'.
+        if same_file || stridx(&cpoptions, "+") >= 0
+            set nomodified
+        endif
+    endtry
 endfunction
 
 " This is necessary to restore an unloaded buffer, or revert with :e.
