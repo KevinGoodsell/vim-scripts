@@ -28,6 +28,8 @@
 
 " XXX Work-around the Vim end-of-line bug. (Still necessary?)
 
+" {{{ UTILITY FUNCTIONS
+
 " Vim has no rethrow.
 function! s:Rethrow()
     let except = v:exception
@@ -45,6 +47,9 @@ function! s:Rethrow()
 
     throw except
 endfunction
+
+" }}}
+" {{{ HEX TOGGLING
 
 function! s:HexToggle(bang)
     " The 'try' block turns errors into exceptions. See :help except-compat.
@@ -136,6 +141,9 @@ function! HexNewBuffer(bang, saved_settings)
     endtry
 endfunction
 
+" }}}
+" {{{ AUTOCMD FUNCTIONS
+
 function! s:HexWrite(fpath)
     try
         let target = expand("<afile>")
@@ -202,5 +210,7 @@ function! s:HexRestore(bufnum, settings)
     exec "buffer! " . a:bufnum
     let [&l:modifiable, &l:filetype, &l:bufhidden] = a:settings
 endfunction
+
+" }}}
 
 command! -bar -bang HexToggle call s:HexToggle("<bang>")
