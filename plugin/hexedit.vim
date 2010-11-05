@@ -1,3 +1,8 @@
+" vim global plugin for toggling hex-editing mode
+" Last Change: 2010 Nov 5
+" Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
+" License:     GPL (see below)
+
 " {{{ COPYRIGHT & LICENSE
 "
 " Copyright 2010 Kevin Goodsell
@@ -18,6 +23,48 @@
 " }}}
 " {{{ NOTES
 "
+" USAGE: This plugin adds a command, HexToggle, which switches the current
+" buffer to "hex mode", or switches back if hex mode was already active. While
+" in hex mode, you can make edits to the byte values, revert changes with :e,
+" and write the buffer with :w or :w <otherfile>.
+"
+" BEWARE!!! You cannot insert or remove bytes in hex mode (except at the end
+" of the buffer). This won't produce any error, but it will probably corrupt
+" the output file in strange ways.
+"
+" BEWARE!!! You cannot change bytes by editing the ASCII values on the right.
+" this will have no effect.
+"
+" These are limitations of the hex dumping/reading program, xxd. See the xxd
+" documentation for full details about its quirks.
+"
+" Be very careful about the end of the file! Vim can sometimes add or remove a
+" final end-of-line. The 'binary' and 'endofline' options mostly determine
+" when this happens, but there's also a Vim bug that can cause the first write
+" following an unrelated read to drop the final end-of-line, if the read
+" buffer lacked a final end-of-line. Writing the buffer a second time repairs
+" the error. All of this confusion can be avoided by writing while in hex
+" mode, but this also leaves you at the mercy of xxd's relatively error-prone
+" and non-recoverable file writing.
+"
+" MORE DETAILS: "Toggling" hex mode on actually creates a new buffer that
+" replaces the current buffer in the window. The original buffer remains
+" intact, and can be accessed with commands like :sbuffer. However, the
+" original buffer has 'nomodifiable' set, because changes made to it cannot be
+" picked up in the hex buffer. 'modifiable' is automatically reset to its old
+" value when the hex buffer is closed.
+"
+" The hex buffer is automatically destroyed when it is hidden or unloaded.
+" Toggling out of hex mode is actually the same as doing :buffer <original
+" buffer>, as long as that buffer actually still exists.
+"
+" The advantage of using a new buffer is that undo doesn't try to switch the
+" text back from hex to the original text (which would completely break syntax
+" highlighting and writing via xxd). Also, the original buffer's undo history
+" remains intact if you switch back to it without writing (as long as it's not
+" unloaded -- 'bufhidden' is set to hide to make this work, and the original
+" value is restored when exiting hex mode).
+"
 " BUG: xxd isn't good at detecting write errors, therefore writing could fail
 " while appearing to succeed.
 "
@@ -26,7 +73,10 @@
 "
 " }}}
 
-" XXX Work-around the Vim end-of-line bug. (Still necessary?)
+if exists("loaded_hexedit")
+    finish
+endif
+let loaded_hexedit = 1
 
 " {{{ UTILITY FUNCTIONS
 
@@ -213,4 +263,6 @@ endfunction
 
 " }}}
 
-command! -bar -bang HexToggle call s:HexToggle("<bang>")
+if !exists(":HexToggle")
+    command -bar -bang HexToggle call s:HexToggle("<bang>")
+endif
