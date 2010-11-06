@@ -1,3 +1,8 @@
+" Vim syntax file
+" Language:    Various hash files: md5, sha1, etc.
+" Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
+" Last Change: 2010 Nov 6
+
 " {{{ COPYRIGHT & LICENSE
 "
 " Copyright 2010 Kevin Goodsell
@@ -75,35 +80,34 @@
 "
 " }}}
 
-if exists('b:current_syntax')
+if exists("b:current_syntax")
     finish
 endif
 
-if exists('g:hash_groups')
-    let s:groups = g:hash_groups
-else
-    let s:groups = ['Comment', 'Constant', 'Identifier', 'Statement', 'PreProc']
+if !exists("g:hash_groups")
+    let g:hash_groups = ["Comment", "Constant", "Identifier", "Statement",
+                       \ "PreProc"]
 endif
 
-if exists('g:hash_mode')
+if exists("g:hash_mode")
     let b:hash_mode = g:hash_mode
 else
-    let b:hash_mode = 'normal'
+    let b:hash_mode = "normal"
 endif
 
 let b:hash_color_index = 0
 let b:hash_counts = {} " { 'hash' : occurrences }
 
 function! s:NextGroup()
-    let g = s:groups[b:hash_color_index]
-    let b:hash_color_index = (b:hash_color_index + 1) % len(s:groups)
+    let g = g:hash_groups[b:hash_color_index]
+    let b:hash_color_index = (b:hash_color_index + 1) % len(g:hash_groups)
     return g
 endfunction
 
 function! s:Reset()
     for hash in keys(b:hash_counts)
-        exe 'highlight link Hash' . hash . ' NONE'
-        exe 'syntax clear Hash' . hash
+        exec "highlight link Hash" . hash . " NONE"
+        exec "syntax clear Hash" . hash
     endfor
     let b:hash_color_index = 0
     let b:hash_counts = {}
@@ -112,11 +116,11 @@ endfunction
 function! s:HashRefresh()
     call s:Reset()
 
-    let last_line = line('$')
+    let last_line = line("$")
     for i in range(1, last_line)
         let line = getline(i)
         let hash = matchstr(line, '\v^\x{32,}')
-        if hash == ''
+        if hash == ""
             continue
         endif
 
@@ -124,33 +128,33 @@ function! s:HashRefresh()
 
         " normal mode is handled in the loop so the colors alternate down
         " the file
-        if cnt == 0 && b:hash_mode == 'normal'
-            exe 'syntax keyword Hash' . hash . ' ' . hash
-            exe 'highlight link Hash' . hash . ' ' . s:NextGroup()
+        if cnt == 0 && b:hash_mode == "normal"
+            exec "syntax keyword Hash" . hash . " " . hash
+            exec "highlight link Hash" . hash . " " . s:NextGroup()
         endif
 
         let b:hash_counts[hash] = cnt + 1
     endfor
 
-    if b:hash_mode != 'normal'
+    if b:hash_mode != "normal"
         for [hash, cnt] in items(b:hash_counts)
-            if (cnt == 1 && b:hash_mode == 'unique') ||
-                \ (cnt > 1 && b:hash_mode == 'dupes')
-                exe 'syntax keyword Hash' . hash . ' ' . hash
-                exe 'highlight link Hash' . hash . ' Todo'
+            if (cnt == 1 && b:hash_mode == "unique") ||
+                \ (cnt > 1 && b:hash_mode == "dupes")
+                exec "syntax keyword Hash" . hash . " " . hash
+                exec "highlight link Hash" . hash . " Todo"
             endif
         endfor
     endif
 endfunction
 
 function! s:ChangeMode(new_mode)
-    if a:new_mode == ''
+    if a:new_mode == ""
         echo b:hash_mode
         return
     endif
     if a:new_mode !~# '\v^(normal|dupes|unique)$'
         echohl WarningMsg
-        echo 'invalid hash mode: "' . a:new_mode . '"'
+        echo "invalid hash mode: " . string(a:new_mode)
         echohl None
         return
     endif
@@ -172,4 +176,4 @@ syntax match String '\v [ *]\zs.+\ze$'
 
 HashRefresh
 
-let b:current_syntax = 'hashes'
+let b:current_syntax = "hashes"
