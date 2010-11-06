@@ -1,3 +1,8 @@
+" Vim global plugin to diff a buffer against an earlier version in a VCS.
+" Last Change: 2010 Nov 5
+" Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
+" License:     GPL (see below)
+
 " {{{ COPYRIGHT & LICENSE
 "
 " Copyright 2010 Kevin Goodsell
@@ -59,6 +64,14 @@
 "
 " }}}
 " {{{ DEFINITIONS
+
+if exists("loaded_vcsdiff")
+    finish
+endif
+let loaded_vcsdiff = 1
+
+let s:save_cpo = &cpo
+set cpo&vim
 
 let s:vcs_names = []
 let s:command_names = {} " {'vcsname' : ['DiffCommandName']}
@@ -222,8 +235,10 @@ function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
     let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
     if index(s:include, a:vcs_name) != -1
         let s:command_help[a:cmd_name] = a:help
-        exec printf("command! -nargs=%s %s call s:Diff('%s', [<f-args>])",
-                  \ a:nargs, a:cmd_name, a:buffer_func)
+        if !exists(":" . a:cmd_name)
+            exec printf("command -nargs=%s %s call s:Diff('%s', [<f-args>])",
+                      \ a:nargs, a:cmd_name, a:buffer_func)
+        endif
     endif
 endfunction
 
@@ -360,9 +375,13 @@ function! s:HelpCompletion(arg_lead, cmd_line, cursor_pos)
     return join(cmds, "\n")
 endfunction
 
-command! VcsDiffList call s:List()
-command! -nargs=* -complete=custom,s:HelpCompletion
-    \ VcsDiffHelp call s:Help(<f-args>)
+if !exists(":VcsDiffList")
+    command! VcsDiffList call s:List()
+endif
+if !exists(":VcsDiffHelp")
+    command! -nargs=* -complete=custom,s:HelpCompletion
+        \ VcsDiffHelp call s:Help(<f-args>)
+endif
 
 " }}}
 " {{{ VCS FUNCTIONS
@@ -466,3 +485,5 @@ let s:svn_help = "SvnDiff [revision] - Diff against the specified revision "
 call s:AddVcsDiff("svn", "SvnDiff", "s:SvnUnmodified", "?", s:svn_help)
 
 " }}}
+
+let &cpo = s:save_cpo

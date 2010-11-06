@@ -1,3 +1,8 @@
+" Vim plugin to execute a line as Python code and insert the result.
+" Last Change: 2010 Nov 5
+" Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
+" License:     GPL (see below)
+
 " {{{ COPYRIGHT & LICENSE
 "
 " Copyright 2010 Kevin Goodsell
@@ -33,10 +38,18 @@
 "
 " }}}
 
+if exists("loaded_runline")
+    finish
+endif
+let loaded_runline = 1
+
 if !executable("python")
     " No Python interpreter available.
     finish
 endif
+
+let s:save_cpo = &cpo
+set cpo&vim
 
 function! s:RunLine()
     " Get the line and remove leading white space.
@@ -66,7 +79,11 @@ function! s:RunLine()
     exec vimcmd
 endfunction
 
-command! -bar RunLine call s:RunLine()
+if !exists(":RunLine")
+    command -bar RunLine call s:RunLine()
+endif
+
+let &cpo = s:save_cpo
 
 " {{{ TESTS
 "
