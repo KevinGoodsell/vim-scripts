@@ -78,6 +78,9 @@ if exists("loaded_hexedit")
 endif
 let loaded_hexedit = 1
 
+let s:save_cpo = &cpo
+set cpo&vim
+
 " {{{ UTILITY FUNCTIONS
 
 " Vim has no rethrow.
@@ -266,3 +269,5 @@ endfunction
 if !exists(":HexToggle")
     command -bar -bang HexToggle call s:HexToggle("<bang>")
 endif
+
+let &cpo = s:save_cpo

@@ -1,3 +1,8 @@
+" Vim global plugin for detecting and setting indent style
+" Last Change: 2010 Nov 5
+" Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
+" License:     GPL (see below)
+
 " {{{ COPYRIGHT & LICENSE
 "
 " Copyright 2010 Kevin Goodsell
@@ -61,15 +66,26 @@
 "
 " }}}
 
+if exists("loaded_indent")
+    finish
+endif
+let loaded_indent = 1
+
+let s:save_cpo = &cpo
+set cpo&vim
+
 augroup IndentGuess
     autocmd!
     autocmd BufReadPost,StdinReadPost * IndentDetect
 augroup END
 
-command! -nargs=1 -bar -complete=custom,s:GetCompletions
-    \ IndentSet call s:IndentSet(<q-args>)
-
-command! -bar IndentDetect call s:IndentDetect()
+if !exists(":IndentSet")
+    command -nargs=1 -bar -complete=custom,s:GetCompletions
+        \ IndentSet call s:IndentSet(<q-args>)
+endif
+if !exists(":IndentDetect")
+    command -bar IndentDetect call s:IndentDetect()
+endif
 
 function! s:Debug(msg, ...)
     if empty(a:000)
@@ -213,3 +229,5 @@ function! s:IndentSet(stylename)
 
     exec indent_cmd
 endfunction
+
+let &cpo = s:save_cpo
