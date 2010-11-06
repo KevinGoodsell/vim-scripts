@@ -49,10 +49,10 @@
 " Usually this plugin will run automatically, but you can use some commands to
 " run it manually:
 "
-" :DetectIndent
+" :IndentDetect
 "     Runs the normal indent detection, just like what happens on file loading.
 "
-" :SetIndent <indent style>
+" :IndentSet <indent style>
 "     Don't do any detection, just set the style indicated. This uses custom
 "     indent commands from g:indent_cmds if it exists.
 "
@@ -62,42 +62,47 @@
 " }}}
 
 augroup IndentGuess
-au!
-au BufReadPost,StdinReadPost * call s:DetectIndent()
+    autocmd!
+    autocmd BufReadPost,StdinReadPost * IndentDetect
 augroup END
 
 command! -nargs=1 -bar -complete=custom,s:GetCompletions
-    \ SetIndent call s:SetIndent(<q-args>)
+    \ IndentSet call s:IndentSet(<q-args>)
 
-command! -bar DetectIndent call s:DetectIndent()
+command! -bar IndentDetect call s:IndentDetect()
 
-function! s:Debug(msg)
-    if !exists('b:indent_debug')
-        let b:indent_debug = a:msg
+function! s:Debug(msg, ...)
+    if empty(a:000)
+        let formatted = a:msg
     else
-        let b:indent_debug = b:indent_debug . "\n" . a:msg
+        let formatted = call("printf", [a:msg] + a:000)
+    endif
+    if !exists("b:indent_debug")
+        let b:indent_debug = formatted
+    else
+        let b:indent_debug .= "\n" . formatted
     endif
 endfunction
 
 " Note that :help 'ts' has some useful notes about this
 let s:indent_cmds = {
-    \ 'tabs'      : 'setl sw=8 sts=0 noet',
-    \ 'spaces-2'  : 'setl sw=2 sts=2 et',
-    \ 'spaces-4'  : 'setl sw=4 sts=4 et',
-    \ 'spaces-8'  : 'setl sw=8 sts=8 et',
-    \ 'emacs-2-4' : 'setl ts=4 sw=2 sts=2 noet',
-    \ 'emacs-2-8' : 'setl ts=8 sw=2 sts=2 noet',
-    \ 'emacs-4-8' : 'setl ts=8 sw=4 sts=4 noet',
+    \ "tabs"      : "setl sw=8 sts=0 noet",
+    \ "spaces-2"  : "setl sw=2 sts=2 et",
+    \ "spaces-4"  : "setl sw=4 sts=4 et",
+    \ "spaces-8"  : "setl sw=8 sts=8 et",
+    \ "emacs-2-4" : "setl ts=4 sw=2 sts=2 noet",
+    \ "emacs-2-8" : "setl ts=8 sw=2 sts=2 noet",
+    \ "emacs-4-8" : "setl ts=8 sw=4 sts=4 noet",
 \ }
 
 let s:indent_patterns = {
-    \ 'tabs'      : '\v^\t+$',
-    \ 'spaces-2'  : '\v^(  )+$',
-    \ 'spaces-4'  : '\v^(    )+$',
-    \ 'spaces-8'  : '\v^(        )+$',
-    \ 'emacs-2-4' : '\v^\t*(  )?$',
-    \ 'emacs-2-8' : '\v^\t*(  ){,3}$',
-    \ 'emacs-4-8' : '\v^\t*(    )?$',
+    \ "tabs"      : '\v^\t+$',
+    \ "spaces-2"  : '\v^(  )+$',
+    \ "spaces-4"  : '\v^(    )+$',
+    \ "spaces-8"  : '\v^(        )+$',
+    \ "emacs-2-4" : '\v^\t*(  )?$',
+    \ "emacs-2-8" : '\v^\t*(  ){,3}$',
+    \ "emacs-4-8" : '\v^\t*(    )?$',
 \ }
 
 " This ordering is supposed to tell which style to prefer when the number
@@ -107,13 +112,13 @@ let s:indent_patterns = {
 " inverse is not true, so spaces-8 has to come first. Likewise
 " for spaces-4 and spaces-2.
 let s:ordering = [
-    \ 'spaces-8',
-    \ 'spaces-4',
-    \ 'spaces-2',
-    \ 'tabs',
-    \ 'emacs-2-4',
-    \ 'emacs-4-8',
-    \ 'emacs-2-8',
+    \ "spaces-8",
+    \ "spaces-4",
+    \ "spaces-2",
+    \ "tabs",
+    \ "emacs-2-4",
+    \ "emacs-4-8",
+    \ "emacs-2-8",
 \ ]
 
 function! s:GetCompletions(arglead, cmdline, cursorpos)
@@ -131,7 +136,7 @@ function! s:PreprocessLines(lines)
     let lines = join(a:lines, "\n")
     " Remove C comments. Note that . matches newlines when searching a string.
     " Check :help string-match for more info
-    let lines = substitute(lines, '\v/\*.{-}\*/', '', 'g')
+    let lines = substitute(lines, '\v/\*.{-}\*/', "", "g")
 
     let result = []
     " Remove lines that can't be used for indent guessing: empty, whitespace
@@ -145,7 +150,9 @@ function! s:PreprocessLines(lines)
     return result
 endfunction
 
-function! s:DetectIndent()
+function! s:IndentDetect()
+    unlet! s:indent_debug
+
     " Up to 1000 lines are used for detection.
     let lines = s:PreprocessLines(getline(1, 1000))
 
@@ -157,8 +164,8 @@ function! s:DetectIndent()
     endfor
 
     let counts = map(items(indent_counts),
-        \ 'printf("%s: %d", tr(v:val[0], " \t", "st"), v:val[1])')
-    call s:Debug(printf('indent counts: %s', string(counts)))
+        \ "printf('%s: %d', tr(v:val[0], \" \t\", 'st'), v:val[1])")
+    call s:Debug("indent counts: %s", string(counts))
 
     let style_counts = {} " { 'style' : num_occurrences }
     for [indent, cnt] in items(indent_counts)
@@ -170,39 +177,39 @@ function! s:DetectIndent()
     endfor
 
     if len(style_counts) == 0
-        call s:Debug('No usable indents found.')
+        call s:Debug("No usable indents found.")
         return
     endif
 
-    call s:Debug(printf('line counts per style: %s', string(style_counts)))
+    call s:Debug("line counts per style: %s", string(style_counts))
 
     let cutoff = max(style_counts) * 850 " 0.850
     let contenders = keys(filter(copy(style_counts),
-                          \ 'v:val * 1000 >= cutoff'))
+                          \ "v:val * 1000 >= cutoff"))
 
-    call s:Debug(printf('contenders: %s', string(contenders)))
+    call s:Debug("contenders: %s", string(contenders))
 
-    call sort(contenders, 's:StyleCompare')
+    call sort(contenders, "s:StyleCompare")
     let style = contenders[0]
 
-    call s:Debug('choosing ' . style)
+    call s:Debug("choosing " . style)
 
-    call s:SetIndent(style)
+    call s:IndentSet(style)
 endfunction
 
-function! s:SetIndent(stylename)
-    if exists('g:indent_cmds') && has_key(g:indent_cmds, a:stylename)
+function! s:IndentSet(stylename)
+    if exists("g:indent_cmds") && has_key(g:indent_cmds, a:stylename)
         let indent_cmd = g:indent_cmds[a:stylename]
     else
         if has_key(s:indent_cmds, a:stylename)
             let indent_cmd = s:indent_cmds[a:stylename]
         else
-            echoerr 'Invalid style name'
+            echoerr "Invalid style name"
             return
         endif
     endif
 
-    call s:Debug(printf('Using command: %s', indent_cmd))
+    call s:Debug("Using command: %s", indent_cmd)
 
     exec indent_cmd
 endfunction
