@@ -28,6 +28,14 @@ plugin/runline.vim
   Command for evaluating a line as Python code, writing the result into
   the buffer. Useful for quick calculations.
 
+plugin/hexedit.vim
+
+  Simple command to add a hex-editing mode.
+
+plugin/fmtwarn.vim
+
+  Plugin to highlight common formatting problems.
+
 syntax/hashes.vim
 
   Syntax file for hash files, like those created by md5sum, sha1sum,
