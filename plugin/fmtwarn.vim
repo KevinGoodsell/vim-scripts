@@ -46,12 +46,14 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 " { 'warning-name' : 'highlightGroup'}
-let s:warnings = {
+let s:hlgroups = {
     \ "inner-tab"      : "fmtwarnInnerTab",
     \ "long-line"      : "fmtwarnLongLine",
     \ "mixed-indent"   : "fmtwarnMixedIndent",
     \ "trailing-space" : "fmtwarnTrailingSpace",
 \ }
+
+let s:warnings = sort(keys(s:hlgroups))
 
 " {{{ USER OPTIONS
 
@@ -64,7 +66,7 @@ if !exists("g:fmtwarn_default_toggle")
 endif
 
 if !exists("g:fmtwarn_include_warnings")
-    let g:fmtwarn_include_warnings = keys(s:warnings)
+    let g:fmtwarn_include_warnings = s:warnings
 endif
 
 if !exists("g:fmtwarn_match_priority")
@@ -87,8 +89,8 @@ function! s:FmtWarnInit()
     if !exists("b:fmtwarn")
         let b:fmtwarn = {}
         let b:fmtwarn.toggle = g:fmtwarn_default_toggle
-        let b:fmtwarn.hlgroups = map(copy(g:fmtwarn_include_warnings),
-                                   \ "s:warnings[v:val]")
+        let b:fmtwarn.enabled = map(copy(g:fmtwarn_include_warnings),
+                                  \ "s:hlgroups[v:val]")
     endif
 
     if !exists("w:fmtwarn_matches")
@@ -124,7 +126,7 @@ function! s:FmtWarnSetWindowWarnings(...)
         " this window.
         let include_groups = {}
         if b:fmtwarn.toggle
-            for hlgroup in b:fmtwarn.hlgroups
+            for hlgroup in b:fmtwarn.enabled
                 let include_groups[hlgroup] = 1
             endfor
         endif
@@ -205,11 +207,11 @@ function! s:FmtWarnOn(...)
 
     let new_groups = s:FmtWarnArgsToGroups(a:000)
 
-    for group in b:fmtwarn.hlgroups
+    for group in b:fmtwarn.enabled
         let new_groups[group] = 1
     endfor
 
-    let b:fmtwarn.hlgroups = keys(new_groups)
+    let b:fmtwarn.enabled = keys(new_groups)
     let b:fmtwarn.toggle = 1
     call s:FmtWarnSetBufferWarnings()
 endfunction
@@ -222,13 +224,13 @@ function! s:FmtWarnOff(...)
 
     let drop_groups = s:FmtWarnArgsToGroups(a:000)
     let new_groups = []
-    for group in b:fmtwarn.hlgroups
+    for group in b:fmtwarn.enabled
         if !has_key(drop_groups, group)
             call add(new_groups, group)
         endif
     endfor
 
-    let b:fmtwarn.hlgroups = new_groups
+    let b:fmtwarn.enabled = new_groups
     call s:FmtWarnSetBufferWarnings()
 endfunction
 
@@ -244,11 +246,11 @@ function! s:FmtWarnArgsToGroups(args)
     let groups = []
     for arg in a:args
         if arg == "all"
-            let groups = values(s:warnings)
+            let groups = values(s:hlgroups)
             break
         endif
 
-        let group = get(s:warnings, arg, "")
+        let group = get(s:hlgroups, arg, "")
         if len(group) == 0
             echoerr "unknown warning: " . arg
             return {}
@@ -265,9 +267,7 @@ function! s:FmtWarnArgsToGroups(args)
 endfunction
 
 function! s:FmtWarningCompletion(arglead, cmdline, cursorpos)
-    let warnings = keys(s:warnings) + ["all"]
-    call sort(warnings)
-    return join(warnings, "\n")
+    return join(s:warnings + ["all"], "\n")
 endfunction
 
 command! -nargs=* -complete=custom,s:FmtWarningCompletion
