@@ -30,8 +30,12 @@
 " }}}
 
 " XXX
-" * Perhaps the match priority should be configurable.
 " * Need a way to exclude files from default warnings.
+
+if !exists("*matchadd")
+    " This Vim doesn't have the necessary features.
+    finish
+endif
 
 if exists("loaded_fmtwarn")
     finish
@@ -63,6 +67,11 @@ if !exists("g:fmtwarn_include_warnings")
     let g:fmtwarn_include_warnings = keys(s:warnings)
 endif
 
+if !exists("g:fmtwarn_match_priority")
+    " -1 is lower than hlsearch.
+    let g:fmtwarn_match_priority = -1
+endif
+
 " }}}
 " {{{ INTERNALS
 
@@ -73,13 +82,17 @@ highlight default link fmtwarnMixedIndent fmtwarnWarning
 highlight default link fmtwarnInnerTab fmtwarnWarning
 highlight default link fmtwarnLongLine fmtwarnWarning
 
-" Initialize format warnings for the current buffer
+" Initialize format warnings for the current buffer and window.
 function! s:FmtWarnInit()
     if !exists("b:fmtwarn")
         let b:fmtwarn = {}
         let b:fmtwarn.toggle = g:fmtwarn_default_toggle
-        let b:fmtwarn.warnings = map(copy(g:fmtwarn_include_warnings),
+        let b:fmtwarn.hlgroups = map(copy(g:fmtwarn_include_warnings),
                                    \ "s:warnings[v:val]")
+    endif
+
+    if !exists("w:fmtwarn_matches")
+        call s:FmtWarnAddWindowMatches()
     endif
 endfunction
 
@@ -104,18 +117,14 @@ function! s:FmtWarnSetWindowWarnings(...)
     endif
 
     try
-        " XXX Does this make sense?
+        " Set up buffer and window vars if not already done.
         call s:FmtWarnInit()
-
-        if !exists("w:fmtwarn_matches")
-            call s:FmtWarnAddWindowMatches()
-        endif
 
         " Find all the warning highlight groups that should be included for
         " this window.
         let include_groups = {}
         if b:fmtwarn.toggle
-            for hlgroup in b:fmtwarn.warnings
+            for hlgroup in b:fmtwarn.hlgroups
                 let include_groups[hlgroup] = 1
             endfor
         endif
@@ -126,10 +135,14 @@ function! s:FmtWarnSetWindowWarnings(...)
         for m in getmatches()
             " Include matches from include_groups, as well as matches that
             " have nothing to do with this plugin.
-            if m.group !~# '\v^fmtwarn' || has_key(include_groups, m.group)
+            " Include matches that aren't from this plugin.
+            if m.group !~# '\v^fmtwarn'
                 call add(new_matches, m)
-                " Filter out already-included items.
-                unlet! include_groups[m.group]
+            " Include matches from include_groups, and remove them so they
+            " don't get double-added.
+            elseif has_key(include_groups, m.group)
+                call add(new_matches, m)
+                unlet include_groups[m.group]
             endif
         endfor
 
@@ -149,10 +162,11 @@ endfunction
 
 " Adds all the warning matches to a window.
 function! s:FmtWarnAddWindowMatches()
-    call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', -1)
-    call matchadd("fmtwarnLongLine", '\v%80v.+', -1)
-    call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', -1)
-    call matchadd("fmtwarnTrailingSpace", '\v\s+$', -1)
+    let priority = g:fmtwarn_match_priority
+    call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', priority)
+    call matchadd("fmtwarnLongLine", '\v%80v.+', priority)
+    call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', priority)
+    call matchadd("fmtwarnTrailingSpace", '\v\s+$', priority)
 
     let w:fmtwarn_matches = {}
     for m in getmatches()
@@ -160,6 +174,15 @@ function! s:FmtWarnAddWindowMatches()
             let w:fmtwarn_matches[m.group] = m
         endif
     endfor
+endfunction
+
+function! s:FmtWarnCheck()
+    if exists("b:fmtwarn")
+        return 1
+    endif
+
+    echomsg "FmtWarn is not enabled for this buffer"
+    return 0
 endfunction
 
 " }}}
@@ -173,24 +196,84 @@ augroup END
 " }}}
 " {{{ USER COMMANDS
 
-function! s:FmtWarnOn(args)
-    " XXX
+" Takes a list of warning names (or 'all'), sets them on for the current
+" buffer. Changes toggle state to 'on'.
+function! s:FmtWarnOn(...)
+    if !s:FmtWarnCheck()
+        return
+    endif
+
+    let new_groups = s:FmtWarnArgsToGroups(a:000)
+
+    for group in b:fmtwarn.hlgroups
+        let new_groups[group] = 1
+    endfor
+
+    let b:fmtwarn.hlgroups = keys(new_groups)
+    let b:fmtwarn.toggle = 1
+    call s:FmtWarnSetBufferWarnings()
 endfunction
 
-function! s:FmtWarnOff(args)
-    " XXX
+" Same as FmtWarnOn, but sets warnings off, and doesn't change toggle state.
+function! s:FmtWarnOff(...)
+    if !s:FmtWarnCheck()
+        return
+    endif
+
+    let drop_groups = s:FmtWarnArgsToGroups(a:000)
+    let new_groups = []
+    for group in b:fmtwarn.hlgroups
+        if !has_key(drop_groups, group)
+            call add(new_groups, group)
+        endif
+    endfor
+
+    let b:fmtwarn.hlgroups = new_groups
+    call s:FmtWarnSetBufferWarnings()
 endfunction
 
 function! s:FmtWarnToggle()
-    if !exists("b:fmtwarn")
-        echomsg "FmtWarn is not enabled for this buffer"
+    if !s:FmtWarnCheck()
+        return
     endif
     let b:fmtwarn.toggle = !b:fmtwarn.toggle
     call s:FmtWarnSetBufferWarnings()
 endfunction
 
-command! -nargs=+ FmtWarnOn call s:FmtWarnOn(<f-args>)
-command! -nargs=+ FmtWarnOff call s:FmtWarnOff(<f-args>)
+function! s:FmtWarnArgsToGroups(args)
+    let groups = []
+    for arg in a:args
+        if arg == "all"
+            let groups = values(s:warnings)
+            break
+        endif
+
+        let group = get(s:warnings, arg, "")
+        if len(group) == 0
+            echoerr "unknown warning: " . arg
+            return {}
+        endif
+        call add(groups, group)
+    endfor
+
+    let result = {}
+    for group in groups
+        let result[group] = 1
+    endfor
+
+    return result
+endfunction
+
+function! s:FmtWarningCompletion(arglead, cmdline, cursorpos)
+    let warnings = keys(s:warnings) + ["all"]
+    call sort(warnings)
+    return join(warnings, "\n")
+endfunction
+
+command! -nargs=* -complete=custom,s:FmtWarningCompletion
+    \ FmtWarnOn call s:FmtWarnOn(<f-args>)
+command! -nargs=+ -complete=custom,s:FmtWarningCompletion
+    \ FmtWarnOff call s:FmtWarnOff(<f-args>)
 command! FmtWarnToggle call s:FmtWarnToggle()
 
 " }}}
