@@ -36,6 +36,11 @@ plugin/fmtwarn.vim
 
   Plugin to highlight common formatting problems.
 
+plugin/autoclog.vim
+
+  A tool to log autocmd executions, allowing plugin writers to see what
+  autocmds are being executed and in what order.
+
 syntax/hashes.vim
 
   Syntax file for hash files, like those created by md5sum, sha1sum,
