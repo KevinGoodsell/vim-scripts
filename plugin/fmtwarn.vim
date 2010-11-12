@@ -1,5 +1,5 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: XXX
+" Last Change: 2010 Nov 12
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -23,14 +23,88 @@
 " }}}
 " {{{ NOTES
 "
-" * Using :syntax would be simpler in some ways, but it's just not practical.
-"   There's no way to make the priority higher than normal syntax, it's all
-"   determined by the type of syntax item and the starting position.
+" This plugin highlights some common formatting problems. Warnings for
+" different types of problems can be selectively enabled and disabled. The
+" specific warnings that are available are:
+"
+" inner-tab
+"   Tab characters used anywhere other than the beginning of a line (but not
+"   those picked up by the mixed-indent warning). This tends to produce
+"   tab-stop-dependent formatting, so it won't look right for people using
+"   different tab-stops.
+"
+" long-line
+"   Lines longer than 80 columns (the exact number is configurable).
+"   Characters beyond the limit are highlighted. This uses Vim's "virtual
+"   columns", not the number or actual characters.
+"
+" mixed-indent
+"   Indents that consist of both tabs and spaces. However, this make an
+"   exception for lines that begin with tabs followed by spaces since it's
+"   common to use tabs up to the current indentation level, then spaces to
+"   align text. Only a tab-and-space sequence at the beginning of a line, with
+"   tabs following spaces, is detected.
+"
+" trailing-space
+"   Any whitespace at the end of a line.
+"
+" User Commands:
+"
+" FmtWarnOn [warning-name ...]
+"   Turns on the given warnings for this buffer, and also toggles warnings on
+"   for this buffer. Any number of warning names, or 'all', may be given. With
+"   no warning names, just toggles warnings on without changing specific
+"   warning enabled states. Tab-completion is supported.
+"
+" FmtWarnOff warning-name [warning-name ...]
+"   Turns off the given warnings for this buffer. Does not change the toggle
+"   state. At least one warning must be given, but more may be given. 'all' is
+"   also accepted. Tab-completion is supported.
+"
+" FmtWarnToggle
+"   Change the toggle state for this buffer, displaying or hiding warnings
+"   without changing the enable state of the warnings. This allows hiding
+"   warnings without forgetting which warnings were in use, and restoring
+"   them later.
+"
+" Configuration:
+"
+" Configuration options are available as variables and as highlight groups:
+"
+" g:fmtwarn_line_length
+"   This is the line length after which the long-line warning kicks in.
+"   Default is 80.
+"
+" g:fmtwarn_default_toggle
+"   The initial toggle state for new buffers. Should be 0 or 1, to disable or
+"   enable warnings initially.
+"
+" g:fmtwarn_include_warnings
+"   The initially enabled warnings for new buffers. This is a list of warning
+"   names as strings. Default is all warnings.
+"
+" g:fmtwarn_match_priority
+"   This is the priority assigned to the match groups used to highlight
+"   warning-provoking text. See :h matchadd() for a description of what this
+"   means. The default is -1 to make it have a lower priority than hlsearch
+"   highlighting.
+"
+" g:fmtwarn_exclude_filetypes
+"   This is a list of filetypes for which the initial toggle state should
+"   always be off. Defaults to ['help', 'qf'] to avoid showing warnings in
+"   Vim's help and quickfix windows.
+"
+" fmtwarnWarning
+"   This is the default highlight group for warnings. You can set the
+"   highlighting for all warning types by setting this with :hi. It is linked
+"   to Error by default.
+"
+" fmtwarnTrailingSpace, fmtwarnMixedIndent, fmtwarnInnerTab, fmtwarnLongLine
+"   Highlight groups for specific warnings. You can use different highlighting
+"   for specific warnings by setting these with :hi. They all link to
+"   fmtwarnWarning by default.
 "
 " }}}
-
-" XXX
-" * Need a way to exclude files from default warnings.
 
 if !exists("*matchadd")
     " This Vim doesn't have the necessary features.
@@ -72,6 +146,10 @@ endif
 if !exists("g:fmtwarn_match_priority")
     " -1 is lower than hlsearch.
     let g:fmtwarn_match_priority = -1
+endif
+
+if !exists("g:fmtwarn_exclude_filetypes")
+    let g:fmtwarn_exclude_filetypes = ["help", "qf"]
 endif
 
 " }}}
@@ -166,7 +244,8 @@ endfunction
 function! s:FmtWarnAddWindowMatches()
     let priority = g:fmtwarn_match_priority
     call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', priority)
-    call matchadd("fmtwarnLongLine", '\v%80v.+', priority)
+    call matchadd("fmtwarnLongLine",
+                \ printf('\v%%%dv.+', g:fmtwarn_line_length + 1), priority)
     call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', priority)
     call matchadd("fmtwarnTrailingSpace", '\v\s+$', priority)
 
@@ -187,12 +266,21 @@ function! s:FmtWarnCheck()
     return 0
 endfunction
 
+function! s:FmtWarnFileType(ft)
+    if index(g:fmtwarn_exclude_filetypes, a:ft) >= 0
+        call s:FmtWarnInit()
+        let b:fmtwarn.toggle = 0
+        call s:FmtWarnSetBufferWarnings()
+    endif
+endfunction
+
 " }}}
 " {{{ AUTOCMDS
 
 augroup FmtWarn
     autocmd!
     autocmd BufWinEnter,WinEnter * call s:FmtWarnSetWindowWarnings()
+    autocmd FileType * call s:FmtWarnFileType(expand("<amatch>"))
 augroup END
 
 " }}}
