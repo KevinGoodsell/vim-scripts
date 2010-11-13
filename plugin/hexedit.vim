@@ -253,15 +253,11 @@ function! s:HexRestore(bufnum, settings)
         " buffer's gone, nothing to do.
         return
     endif
-    " Setting the current buffer here seems like it could be a problem.
-    " Suppose two windows are open, one being the hex buffer and one being
-    " unrelated. Closing the hex window should focus the unrelated window, not
-    " the non-hex buffer. It turns out that, since this is called from the
-    " BufWinLeave autocmd, the hex window is still open, and the buffer
-    " presumably gets put into that window when it is activated, so it all
-    " works out.
-    exec "buffer! " . a:bufnum
-    let [&l:modifiable, &l:filetype, &l:bufhidden] = a:settings
+    " This would be nice, but we can't be sure which buffer we're on.
+    "let [&l:modifiable, &l:filetype, &l:bufhidden] = a:settings
+    call setbufvar(a:bufnum, "&modifiable", a:settings[0])
+    call setbufvar(a:bufnum, "&filetype", a:settings[1])
+    call setbufvar(a:bufnum, "&bufhidden", a:settings[2])
 endfunction
 
 " }}}
