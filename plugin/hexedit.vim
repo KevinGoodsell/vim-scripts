@@ -1,5 +1,5 @@
-" vim global plugin for toggling hex-editing mode
-" Last Change: 2010 Nov 5
+" Vim global plugin for toggling hex-editing mode
+" Last Change: 2010 Nov 16
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -80,6 +80,10 @@ let loaded_hexedit = 1
 
 let s:save_cpo = &cpo
 set cpo&vim
+
+if !exists("g:hex_statusline")
+    let g:hex_statusline = "%<%f %m%r%=%{b:hex_status_info}  %-14.(%l,%c%V%) %P"
+endif
 
 " {{{ UTILITY FUNCTIONS
 
@@ -166,7 +170,9 @@ function! HexNewBuffer(bang, saved_settings)
     exec "enew" . a:bang
     try
         let b:hex_original_bufnr = original_bufnr
+        let b:hex_status_info = ""
         set buftype=acwrite bufhidden=wipe
+        let &l:statusline = g:hex_statusline
         exec printf("silent file %s [hex]", fnameescape(fname))
         augroup HexEdit
             let pathstr = string(fnamemodify(fname, ":p"))
@@ -177,6 +183,7 @@ function! HexNewBuffer(bang, saved_settings)
             exec printf("au BufWinLeave <buffer> call " .
                       \ "s:HexRestore(%d, %s)",
                       \ original_bufnr, string(a:saved_settings))
+            autocmd CursorMoved <buffer> call s:CursorMoved()
         augroup END
 
         " Load the file from disk, via s:HexRead.
@@ -258,6 +265,119 @@ function! s:HexRestore(bufnum, settings)
     call setbufvar(a:bufnum, "&modifiable", a:settings[0])
     call setbufvar(a:bufnum, "&filetype", a:settings[1])
     call setbufvar(a:bufnum, "&bufhidden", a:settings[2])
+endfunction
+
+function! s:CursorMoved()
+    let byte_info = s:ByteInfo()
+    call s:SetStatus(byte_info)
+    call s:HighlightMatch(byte_info)
+endfunction
+
+" }}}
+" {{{ EDITING FEATURES
+
+let s:lower_byte_names = [
+    \ 'NUL', 'SOH', 'STX', 'ETX',   'EOT', 'ENQ', 'ACK', 'BEL',
+    \ 'BS ', 'HT ', 'LF ', 'VT ',   'FF ', 'CR ', 'SO ', 'SI ',
+    \ 'DLE', 'DC1', 'DC2', 'DC3',   'DC4', 'NAK', 'SYN', 'ETB',
+    \ 'CAN', 'EM ', 'SUB', 'ESC',   'FS ', 'GS ', 'RS ', 'US ',
+    \ 'SP ', '!  ', '"  ', '#  ',   '$  ', '%  ', '&  ', "'  ",
+    \ '(  ', ')  ', '*  ', '+  ',   ',  ', '-  ', '.  ', '/  ',
+    \ '0  ', '1  ', '2  ', '3  ',   '4  ', '5  ', '6  ', '7  ',
+    \ '8  ', '9  ', ':  ', ';  ',   '<  ', '=  ', '>  ', '?  ',
+    \ '@  ', 'A  ', 'B  ', 'C  ',   'D  ', 'E  ', 'F  ', 'G  ',
+    \ 'H  ', 'I  ', 'J  ', 'K  ',   'L  ', 'M  ', 'N  ', 'O  ',
+    \ 'P  ', 'Q  ', 'R  ', 'S  ',   'T  ', 'U  ', 'V  ', 'W  ',
+    \ 'X  ', 'Y  ', 'Z  ', '[  ',   '\  ', ']  ', '^  ', '_  ',
+    \ '`  ', 'a  ', 'b  ', 'c  ',   'd  ', 'e  ', 'f  ', 'g  ',
+    \ 'h  ', 'i  ', 'j  ', 'k  ',   'l  ', 'm  ', 'n  ', 'o  ',
+    \ 'p  ', 'q  ', 'r  ', 's  ',   't  ', 'u  ', 'v  ', 'w  ',
+    \ 'x  ', 'y  ', 'z  ', '{  ',   '|  ', '}  ', '~  ', 'DEL',
+\ ]
+
+let s:upper_byte_names = repeat(["---"], 128)
+let s:byte_names = s:lower_byte_names + s:upper_byte_names
+
+" This is a quick way to get the next byte offset from the cursor position.
+let s:cursor_byte = repeat([0], 9) + map(range(16*3), "v:val / 3") + [0, 0]
+    \ + range(16)
+
+" For reference, column numbers and what it looks like at higher addresses:
+"           1         2         3         4         5         6         7
+" 01234567890123456789012345678901234567890123456789012345678901234567890123
+" ffffff0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+" 10000000:00 00 00 ....
+
+" Returns a list of 3 items:
+" 0: The offset within the file of the next byte after the cursor position.
+" 1: The cursor column where the next byte begins in the hex section.
+" 2: The cursor column where the next byte occurs in the ASCII section.
+function! s:ByteInfo()
+    let line = getline(".")
+    let matches = matchlist(line[:57], '\v^(\x{7,8}): ?(%(\x{2} ){1,16}) +')
+    if empty(matches)
+        return []
+    endif
+    let [full, addrpart, hexpart] = matches[:2]
+    let asciipart = line[58:]
+    if len(full) + len(asciipart) != len(line) || len(line) > 74
+        return []
+    endif
+    let baseaddr = str2nr(addrpart, 16)
+
+    let cursor = col(".")
+    if cursor >= len(s:cursor_byte)
+        return []
+    endif
+
+    let byte_offset = s:cursor_byte[cursor]
+    let hex_pos = 10 + byte_offset * 3
+    let asc_pos = 59 + byte_offset
+    return [baseaddr + byte_offset, hex_pos, asc_pos]
+endfunction
+
+function! s:SetStatus(byte_info)
+    let status_format = "%10s %4s %3s"
+    if empty(a:byte_info)
+        let b:hex_status_info = printf(status_format, "??????????", '----',
+                                     \ '---')
+        return
+    endif
+
+    let [address, hex_pos, asc_pos] = a:byte_info
+    let line = getline(".")
+    let hexstr = line[hex_pos-1:hex_pos]
+    let addrval = printf("0x%08x", address)
+    if hexstr == "  "
+        let hexval = "----"
+        let ascval = "---"
+    else
+        let byteval = str2nr(hexstr, 16)
+        let hexval = printf("0x%02x", byteval)
+        let ascval = s:byte_names[byteval]
+    endif
+    let b:hex_status_info = printf(status_format, addrval, hexval, ascval)
+endfunction
+
+function! s:HighlightMatch(byte_info)
+    3match none
+
+    if empty(a:byte_info)
+        return
+    endif
+
+    let [address, hex_pos, asc_pos] = a:byte_info
+    let cursor = col(".")
+    let line = getline(".")
+    if line[hex_pos-1] !~ '\x'
+        return
+    endif
+    if cursor == asc_pos || cursor == hex_pos || cursor == hex_pos + 1
+        let line_num = line(".")
+        let pattern = printf('/\v(%%%dl%%%dc)|(%%%dl%%%dc)/', line_num, hex_pos,
+                           \ line_num, asc_pos)
+        exec "3match MatchParen " . pattern
+    endif
 endfunction
 
 " }}}
