@@ -174,6 +174,14 @@ function! HexNewBuffer(bang, saved_settings)
         set buftype=acwrite bufhidden=wipe
         let &l:statusline = g:hex_statusline
         exec printf("silent file %s [hex]", fnameescape(fname))
+
+        " Some ideas here are borrowed from the matchit plugin.
+        nnoremap <buffer> <silent> % :<C-U>call <SID>JumpMatch("n")<CR>
+        vnoremap <buffer> <silent> % :<C-U>call <SID>JumpMatch("v")<CR>
+        " Supporting operator-pending mode is probably more trouble than it's
+        " worth.
+        "onoremap <buffer> <silent> % :<C-U>call <SID>JumpMatch("o")<CR>
+
         augroup HexEdit
             let pathstr = string(fnamemodify(fname, ":p"))
             exec printf("au BufWriteCmd <buffer> call s:HexWrite(%s)",
@@ -248,7 +256,7 @@ function! s:HexRead(fpath)
             echoerr "failed to read file " . string(a:fpath)
         endif
         " :read leaves a blank line at the top.
-        1 delete _
+        keepjumps 1 delete _
         set filetype=xxd
     finally
         let &undolevels = undolevels
@@ -377,6 +385,40 @@ function! s:HighlightMatch(byte_info)
         let pattern = printf('/\v(%%%dl%%%dc)|(%%%dl%%%dc)/', line_num, hex_pos,
                            \ line_num, asc_pos)
         exec "3match MatchParen " . pattern
+    endif
+endfunction
+
+function! <SID>JumpMatch(mode)
+    " This is another trick from matchit.vim. When a command is begun in
+    " visual mode, and the range is deleted, visual mode is canceled and the
+    " cursor is left at the earlier end of the visual range. When visual mode
+    " is canceled with ESC, the cursor is left at the ending point. We are in
+    " the former situation, and need to be in the later.
+    if a:mode == "v"
+        exec "normal! gv\<Esc>"
+    endif
+
+    let byte_info = s:ByteInfo()
+    if empty(byte_info)
+        if a:mode == "v"
+            normal gv
+        endif
+        return
+    endif
+
+    " Save the current position in the jumplist.
+    normal m'
+    let [address, hex_pos, asc_pos] = byte_info
+    let cursor = col(".")
+    if cursor <= hex_pos + 1
+        call cursor(0, asc_pos)
+    else
+        call cursor(0, hex_pos)
+    endif
+
+    if a:mode == "v"
+        " Executing commands loses the visual selection, so restore it.
+        normal m'gv``
     endif
 endfunction
 
