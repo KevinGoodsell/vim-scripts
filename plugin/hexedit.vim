@@ -105,6 +105,26 @@ function! s:Rethrow()
     throw except
 endfunction
 
+" Vim's printf gets field widths wrong when the characters going into the
+" field are multi-byte (in the same way it gets strlen wrong). This can be
+" used instead. The optional third argument is false for left-aligning within
+" the field (the default), true for right-aligning.
+function! s:PadString(str, width, ...)
+    if a:0 > 0
+        let right_align = a:1
+    else
+        let right_align = 0
+    endif
+
+    let len = strlen(substitute(a:str, '.', "x", "g"))
+    let pad = max([0, a:width - len])
+    if right_align
+        return repeat(" ", pad) . a:str
+    else
+        return a:str . repeat(" ", pad)
+    endif
+endfunction
+
 " }}}
 " {{{ HEX TOGGLING
 
@@ -368,7 +388,7 @@ function! s:SetStatus(byte_info)
     else
         let byteval = str2nr(hexstr, 16)
         let hexval = printf("0x%02x", byteval)
-        let ascval = s:byte_names[byteval]
+        let ascval = s:PadString(s:byte_names[byteval], 4)
     endif
     let b:hex_status_info = printf(status_format, addrval, hexval, ascval)
 endfunction
