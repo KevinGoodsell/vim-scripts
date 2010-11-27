@@ -41,6 +41,15 @@ plugin/autoclog.vim
   A tool to log autocmd executions, allowing plugin writers to see what
   autocmds are being executed and in what order.
 
+plugin/gpgsecure.vim
+
+  Plugin for securely editing files encrypted with GnuPG. Similar to
+  gnupg.vim, but much simpler and (I believe) more secure.
+
+gpgpsecure.vimrc
+
+  Vim configuration file for use with gpgsecure.vim.
+
 syntax/hashes.vim
 
   Syntax file for hash files, like those created by md5sum, sha1sum,
