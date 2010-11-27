@@ -1,5 +1,5 @@
 " Vim global plugin for editing encrypted files.
-" Last Change: 2010 Nov 26
+" Last Change: 2010 Nov 27
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -167,6 +167,9 @@ function! s:GpgRead(filename)
             " This causes the usual [New File] message.
             exec "edit " . fnameescape(a:filename)
         endif
+
+        " Save the current change number
+        let b:gpg_change_nr = changenr()
     catch
         redraw
         echohl ErrorMsg
@@ -192,7 +195,7 @@ function! s:GpgWrite(filename)
                                \ g:gpg_write_options, fnameescape(a:filename)))
 
         if same_file || &cpo =~ '\V+'
-            setlocal nomodified
+            call s:ResetModified()
         endif
     catch
         redraw
@@ -213,6 +216,21 @@ function! s:SecuritySettings()
 
     " local settings
     setlocal noswapfile
+endfunction
+
+function! s:ResetModified()
+    let cur_change = changenr()
+    let change_count = cur_change - b:gpg_change_nr
+    if change_count > 0
+        " Set 'modified' on the previously 'unmodified' change.
+        exec "silent earlier " . change_count
+        set modified
+        " Move back to the current change.
+        exec "silent undo " . cur_change
+    endif
+
+    let b:gpg_change_nr = cur_change
+    setlocal nomodified
 endfunction
 
 let &cpo = s:save_cpo
