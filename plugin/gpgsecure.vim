@@ -1,5 +1,5 @@
 " Vim global plugin for editing encrypted files.
-" Last Change: 2010 Nov 27
+" Last Change: 2010 Nov 29
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -121,8 +121,9 @@ endif
 
 augroup GpgSecure
     autocmd!
-    autocmd BufReadCmd *.gpg call s:GpgRead(expand("<afile>"))
-    autocmd BufWriteCmd *.gpg call s:GpgWrite(expand("<afile>"))
+    autocmd BufReadCmd *.gpg call s:ErrorWrapper("s:GpgRead", expand("<afile>"))
+    autocmd BufWriteCmd *.gpg call s:ErrorWrapper("s:GpgWrite",
+                                                \ expand("<afile>"))
 augroup END
 
 function! s:ShellRead(cmd)
@@ -145,31 +146,9 @@ function! s:ShellCmd(cmd)
     endif
 endfunction
 
-function! s:GpgRead(filename)
+function! s:ErrorWrapper(func, ...)
     try
-        let file_exists = glob(a:filename, 1) != ""
-
-        call s:SecuritySettings()
-        setlocal buftype=acwrite
-
-        if file_exists
-            let saved_undolevels = &undolevels
-            set undolevels=-1
-            try
-                call s:ShellRead(
-                    \ printf("gpg --output - %s %s %s", g:gpg_options,
-                           \ g:gpg_read_options, fnameescape(a:filename)))
-                keepjumps 1 delete _
-            finally
-                let &undolevels = saved_undolevels
-            endtry
-        else
-            " This causes the usual [New File] message.
-            exec "edit " . fnameescape(a:filename)
-        endif
-
-        " Save the current change number
-        let b:gpg_change_nr = changenr()
+        call call(a:func, a:000)
     catch
         redraw
         echohl ErrorMsg
@@ -178,31 +157,50 @@ function! s:GpgRead(filename)
     endtry
 endfunction
 
+function! s:GpgRead(filename)
+    let file_exists = glob(a:filename, 1) != ""
+
+    call s:SecuritySettings()
+    setlocal buftype=acwrite
+
+    if file_exists
+        let saved_undolevels = &undolevels
+        set undolevels=-1
+        try
+            call s:ShellRead(
+                \ printf("gpg --output - %s %s %s", g:gpg_options,
+                       \ g:gpg_read_options, fnameescape(a:filename)))
+            keepjumps 1 delete _
+        finally
+            let &undolevels = saved_undolevels
+        endtry
+    else
+        " This causes the usual [New File] message.
+        exec "edit " . fnameescape(a:filename)
+    endif
+
+    " Save the current change number
+    let b:gpg_change_nr = changenr()
+endfunction
+
 function! s:GpgWrite(filename)
-    try
-        let same_file = a:filename == expand("%")
-        let overwrite = v:cmdbang || &writeany
-        let file_exists = glob(a:filename, 1) != ""
+    let same_file = a:filename == expand("%")
+    let overwrite = v:cmdbang || &writeany
+    let file_exists = glob(a:filename, 1) != ""
 
-        if !same_file && !overwrite && file_exists
-            echoerr "File exists (add ! to override)"
-            " As long as we're in a :try block, this return shouldn't actually
-            " be needed, but it doesn't hurt.
-            return
-        endif
+    if !same_file && !overwrite && file_exists
+        echoerr "File exists (add ! to override)"
+        " As long as we're in a :try block, this return shouldn't actually
+        " be needed, but it doesn't hurt.
+        return
+    endif
 
-        call s:ShellWrite(printf("gpg %s %s > %s", g:gpg_options,
-                               \ g:gpg_write_options, fnameescape(a:filename)))
+    call s:ShellWrite(printf("gpg %s %s > %s", g:gpg_options,
+                           \ g:gpg_write_options, fnameescape(a:filename)))
 
-        if same_file || &cpo =~ '\V+'
-            call s:ResetModified()
-        endif
-    catch
-        redraw
-        echohl ErrorMsg
-        echomsg v:exception
-        echohl NONE
-    endtry
+    if same_file || &cpo =~ '\V+'
+        call s:ResetModified()
+    endif
 endfunction
 
 function! s:SecuritySettings()
