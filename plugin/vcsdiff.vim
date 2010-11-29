@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2010 Nov 5
+" Last Change: 2010 Nov 29
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -157,16 +157,22 @@ function! s:GetCmdOutput(cmd)
     return s:RunCmd(a:cmd, 0)
 endfunction
 
-" There's no rethrow in vim, and the standard way to emulate it, by throwing
-" v:exception, fails with vim errors (see :help rethrow). This is a
-" work-around.
+" Vim has no rethrow.
 function! s:Rethrow()
-    if v:exception =~# '\v^Vim'
-        " Can't throw this directly, but also don't want to add a new prefix
-        " on every rethrow.
-        echoerr substitute(v:exception, '\v^Vim\(echoerr\):', '', '')
+    let except = v:exception
+
+    " Add source info if it's not already there.
+    if except !~# '\v \[from .*\]$'
+        let except = printf("%s [from %s]", except, v:throwpoint)
     endif
-    throw v:exception
+
+    " Can't directly throw Vim exceptions (see :h try-echoerr), so use echoerr
+    " instead, but strip off an existing echoerr prefix first.
+    if except =~# '\v^Vim'
+        echoerr substitute(except, '\v^Vim\(echoerr\):', "", "")
+    endif
+
+    throw except
 endfunction
 
 " Set the name for the buffer.
