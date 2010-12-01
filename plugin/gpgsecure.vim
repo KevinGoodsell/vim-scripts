@@ -1,5 +1,5 @@
 " Vim global plugin for editing encrypted files.
-" Last Change: 2010 Nov 29
+" Last Change: 2010 Nov 30
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -100,6 +100,19 @@
 "     Default: "--symmetric"
 "
 " }}}
+" {{{ ISSUES
+"
+" * The stderr output from gpg is written to a temporary file in order for Vim
+"   to retrieve it and report errors. This doesn't include the encrypted data,
+"   but it may leak certain information. This information is probably not
+"   particularly sensitive, but you should still be aware of it.
+"
+" * gpg will return an error result when the agent window is dismissed, even
+"   though it can successfully fall back on using the tty. It's not clear that
+"   this can be distinguished from real errors, so it's reported as an error
+"   even though the decryption succeeds.
+"
+" }}}
 
 if exists("loaded_gpgsecure") || !exists("loading_gpgsecure")
     finish
@@ -125,6 +138,37 @@ augroup GpgSecure
     autocmd BufWriteCmd *.gpg call s:ErrorWrapper("s:GpgWrite",
                                                 \ expand("<afile>"))
 augroup END
+
+" {{{ Tools to support 'rethrow' in Vim
+
+let s:rethrow_pattern = '\v\<SNR\>\d+_Rethrow>'
+
+function! s:Rethrow()
+    let except = v:exception
+
+    " Save source info
+    if !exists("s:rethrow_throwpoint") || v:throwpoint !~# s:rethrow_pattern
+        let s:rethrow_throwpoint = v:throwpoint
+    endif
+
+    " Can't directly throw Vim exceptions (see :h try-echoerr), so use echoerr
+    " instead, but strip off an existing echoerr prefix first.
+    if except =~# '\v^Vim'
+        echoerr substitute(except, '\v^Vim\(echoerr\):', "", "")
+    endif
+
+    throw except
+endfunction
+
+function! s:Throwpoint()
+    if v:throwpoint =~# s:rethrow_pattern
+        return s:rethrow_throwpoint
+    else
+        return v:throwpoint
+    endif
+endfunction
+
+" }}}
 
 function! s:ShellRead(cmd)
     return s:ShellCmd("read !" . a:cmd)
@@ -152,6 +196,7 @@ function! s:ErrorWrapper(func, ...)
     catch
         redraw
         echohl ErrorMsg
+        echomsg "Error from: " . s:Throwpoint()
         echomsg v:exception
         echohl NONE
     endtry
@@ -171,6 +216,9 @@ function! s:GpgRead(filename)
                 \ printf("gpg --output - %s %s %s", g:gpg_options,
                        \ g:gpg_read_options, fnameescape(a:filename)))
             keepjumps 1 delete _
+        catch
+            bwipeout!
+            call s:Rethrow()
         finally
             let &undolevels = saved_undolevels
         endtry
