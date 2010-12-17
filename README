@@ -46,6 +46,10 @@ plugin/gpgsecure.vim
   Plugin for securely editing files encrypted with GnuPG. Similar to
   gnupg.vim, but much simpler and (I believe) more secure.
 
+plugin/termfix.vim
+
+  Plugin to do additional terminal setup and fix terminal keys.
+
 gpgpsecure.vimrc
 
   Vim configuration file for use with gpgsecure.vim.
