@@ -167,8 +167,7 @@ function! s:FmtWarnInit()
     if !exists("b:fmtwarn")
         let b:fmtwarn = {}
         let b:fmtwarn.toggle = g:fmtwarn_default_toggle
-        let b:fmtwarn.enabled = map(copy(g:fmtwarn_include_warnings),
-                                  \ "s:hlgroups[v:val]")
+        let b:fmtwarn.enabled = copy(g:fmtwarn_include_warnings)
     endif
 
     if !exists("w:fmtwarn_matches")
@@ -204,7 +203,8 @@ function! s:FmtWarnSetWindowWarnings(...)
         " this window.
         let include_groups = {}
         if b:fmtwarn.toggle
-            for hlgroup in b:fmtwarn.enabled
+            for warning in b:fmtwarn.enabled
+                let hlgroup = s:hlgroups[warning]
                 let include_groups[hlgroup] = 1
             endfor
         endif
@@ -293,13 +293,13 @@ function! s:FmtWarnOn(...)
         return
     endif
 
-    let new_groups = s:FmtWarnArgsToGroups(a:000)
+    let new_warnings = s:FmtWarnArgs(a:000)
 
-    for group in b:fmtwarn.enabled
-        let new_groups[group] = 1
+    for warning in b:fmtwarn.enabled
+        let new_warnings[warning] = 1
     endfor
 
-    let b:fmtwarn.enabled = keys(new_groups)
+    let b:fmtwarn.enabled = keys(new_warnings)
     let b:fmtwarn.toggle = 1
     call s:FmtWarnSetBufferWarnings()
 endfunction
@@ -310,15 +310,15 @@ function! s:FmtWarnOff(...)
         return
     endif
 
-    let drop_groups = s:FmtWarnArgsToGroups(a:000)
-    let new_groups = []
-    for group in b:fmtwarn.enabled
-        if !has_key(drop_groups, group)
-            call add(new_groups, group)
+    let drop_warnings = s:FmtWarnArgs(a:000)
+    let new_warnings = []
+    for warning in b:fmtwarn.enabled
+        if !has_key(drop_warnings, warning)
+            call add(new_warnings, warning)
         endif
     endfor
 
-    let b:fmtwarn.enabled = new_groups
+    let b:fmtwarn.enabled = new_warnings
     call s:FmtWarnSetBufferWarnings()
 endfunction
 
@@ -328,27 +328,35 @@ function! s:FmtWarnToggle()
     endif
     let b:fmtwarn.toggle = !b:fmtwarn.toggle
     call s:FmtWarnSetBufferWarnings()
+    if b:fmtwarn.toggle
+        if len(b:fmtwarn.enabled) == 0
+            echo "FmtWarn on (but no warnings enabled)"
+        else
+            echo "FmtWarn on (" . join(b:fmtwarn.enabled, " ") . ")"
+        endif
+    else
+        echo "FmtWarn off"
+    endif
 endfunction
 
-function! s:FmtWarnArgsToGroups(args)
-    let groups = []
+function! s:FmtWarnArgs(args)
+    let warnings = []
     for arg in a:args
         if arg == "all"
-            let groups = values(s:hlgroups)
+            let warnings = copy(s:warnings)
             break
         endif
 
-        let group = get(s:hlgroups, arg, "")
-        if len(group) == 0
+        if !has_key(s:hlgroups, arg)
             echoerr "unknown warning: " . arg
             return {}
         endif
-        call add(groups, group)
+        call add(warnings, arg)
     endfor
 
     let result = {}
-    for group in groups
-        let result[group] = 1
+    for warning in warnings
+        let result[warning] = 1
     endfor
 
     return result
