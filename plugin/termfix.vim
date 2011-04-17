@@ -60,6 +60,11 @@
 "    can make the :map and :map! output very messy. Mappings are used by
 "    default.
 "
+"  g:termfix_testing
+"
+"    If this evaluates as true, extra features for testing are enabled.
+"    Generally intended for development use only.
+"
 " }}}
 
 if exists("loaded_termfix")
@@ -82,6 +87,10 @@ endif
 " Use :map when :set isn't possible?
 if !exists("g:termfix_map")
     let g:termfix_map = 1
+endif
+
+if !exists("g:termfix_testing")
+    let g:termfix_testing = 0
 endif
 
 let s:termfix_mappings = []
@@ -316,5 +325,24 @@ augroup TermFix
     au!
     au TermChanged,VimEnter * call s:FixTerm()
 augroup END
+
+if g:termfix_testing
+    " This adds imap mappings for the function and application keys, causing
+    " them to ouput their own 'name'. Offers a quick way to test how keys have
+    " been mapped. Must be called manually to set up the mappings.
+    function! g:TermfixMapKeys()
+        let fkeys = map(range(1, 20), '"F" . v:val')
+        let keys = fkeys + ["Up", "Down", "Right", "Left", "Del", "Insert",
+            \ "PageUp", "PageDown", "Home", "End"]
+        let mods = ["", "S-", "C-", "M-", "S-C-", "C-M-", "S-M-", "C-S-M-"]
+
+        for key in keys
+            for mod in mods
+                let combined = mod . key
+                exec printf("imap <%s> <lt>%s>", combined, combined)
+            endfor
+        endfor
+    endfunction
+endif
 
 let &cpo = s:save_cpo
