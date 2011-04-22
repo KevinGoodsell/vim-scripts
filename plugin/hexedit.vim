@@ -234,8 +234,8 @@ endfunction
 
 function! s:HexWrite(fpath)
     try
-        let target = expand("<afile>")
-        let same_file = (target == expand("%"))
+        let target = expand("<afile>:p")
+        let same_file = (target == expand("%:p"))
 
         if same_file
             " Redirect to the real file, not 'filename [hex]'
