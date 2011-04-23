@@ -108,7 +108,7 @@ function! s:Strip(str)
     return substitute(a:str, '\v^[ \t\r\n]*(.{-})[ \t\r\n]*$', '\1', "")
 endfunction
 
-" s:RunCmd() is a helper for functions that run a shell command. Don't call it
+" s:RunCmd() is a helper for functions that runs a shell command. Don't call it
 " directly.
 function! s:RunCmd(cmd, write_output)
     let stderr_temp = tempname()
@@ -423,8 +423,10 @@ let s:rev_info_failed_msg = "[failed to get rev info]"
 
 function! s:GitUnmodified(fname, args)
     if empty(a:args)
-        " Diffing against index version
-        let commit = ""
+        " Diffing against index version, but use HEAD if it's the same.
+        " This gives more useful information in the status line.
+        call system("git diff-index --cached --quiet HEAD " . a:fname)
+        let commit = v:shell_error ? "" : "HEAD"
     else
         " Diffing against a specific revision
         let cmd = "git rev-parse " . shellescape(a:args[0])
@@ -435,7 +437,7 @@ function! s:GitUnmodified(fname, args)
     let arg = shellescape(printf("%s:%s%s", commit, prefix, a:fname))
     call s:WriteCmdOutput("git show " . arg)
 
-    if empty(a:args)
+    if commit == ""
         let rev_info = "[index version]"
     else
         try
