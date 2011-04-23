@@ -59,8 +59,10 @@
 " {{{ NOTES
 "
 " Known Bugs:
-" * After doing the diff, if the original window is split, closing the diff
-"   window only restores settings for one of the remaining diff windows.
+" * If you close the original buffer then open it again (with the diff buffer
+"   still around), it will still be in diff mode. However, scrollbind
+"   typically gets turned off in this case. This is normal scrollbind
+"   behavior, see :h 'scrollbind'.
 "
 " }}}
 " {{{ DEFINITIONS
@@ -263,7 +265,19 @@ function! s:Diff(funcname, args)
     try
         " Gather info
         let filetype = &filetype
-        let w:vcsdiff_restore = "diffoff|"
+        " Save command to restore everything to the pre-diff state. These are
+        " mostly window settings, but we save in a buffer variable. The reason
+        " is that we can't rely on window variables. From :h local-options:
+        "
+        "   When editing a buffer that has been edited before, the last used
+        "   window options are used again.  If this buffer has been edited in
+        "   this window, the values from back then are used.  Otherwise the
+        "   values from the window where the buffer was edited last are used.
+        "
+        " Therefore if the buffer is hidden while in diff mode and later
+        " re-displayed, the old window settings come back. This is also the
+        " reason for the autocmd that follows.
+        let b:vcsdiff_restore = "diffoff|"
             \ . "setlocal"
             \ . (&diff ? " diff" : " nodiff")
             \ . (&scrollbind ? " scrollbind" : " noscrollbind")
@@ -271,6 +285,9 @@ function! s:Diff(funcname, args)
             \ . (&wrap ? " wrap" : " nowrap")
             \ . " foldmethod=" . &foldmethod
             \ . " foldcolumn=" . &foldcolumn
+        " Make sure we can restore things even if the buffer has been hidden.
+        autocmd BufWinEnter <buffer>
+            \ exec "if !s:HasDiffBuffer()|call s:Undiff()|endif"
 
         " Most systems will require being in the directory of the file, or at
         " least in the repository working dir.
@@ -333,14 +350,24 @@ function! s:Undiff()
     let cur_win = winnr()
     let last_win = winnr("$")
     " Loop through all windows executing restore commands where they exist.
-    " There should actually only be one window with such a command, but if
-    " there are others (perhaps due to bugs) it's probably best to go ahead
-    " and get rid of them.
+    " The actual diff buffer could be in 0 or more windows. In the 0 case,
+    " nothing happens, but there's an autocmd to fix up the buffer next time
+    " it is displayed. In the 1 window case, the window settings are restored.
+    " If the buffer is in several windows, we restore all of them.
     for i in range(1, last_win)
         exec i . "wincmd w"
-        if exists("w:vcsdiff_restore")
-            exec w:vcsdiff_restore
-            unlet w:vcsdiff_restore
+        if exists("b:vcsdiff_restore")
+            exec b:vcsdiff_restore
+        endif
+    endfor
+    " Repeat the loop, this time to remove the stuff attached to the buffer.
+    " Doing this after visiting all of the windows makes sure that all windows
+    " displaying the diff buffer get restored.
+    for i in range(1, last_win)
+        exec i . "wincmd w"
+        if exists("b:vcsdiff_restore")
+            unlet b:vcsdiff_restore
+            autocmd! BufWinLeave <buffer>
         endif
     endfor
     exec cur_win . "wincmd w"
