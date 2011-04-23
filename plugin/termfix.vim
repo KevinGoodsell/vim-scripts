@@ -1,5 +1,5 @@
 " Vim global plugin to fix certain terminals.
-" Last Change: 2010 Dec 16
+" Last Change: 2011 Apr 17
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 

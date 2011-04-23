@@ -1,5 +1,5 @@
 " Vim global plugin for toggling hex-editing mode
-" Last Change: 2010 Nov 16
+" Last Change: 2011 Apr 22
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 

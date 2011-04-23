@@ -1,5 +1,5 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: 2010 Nov 12
+" Last Change: 2011 Apr 2
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
