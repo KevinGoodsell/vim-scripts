@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2011 Apr 22
+" Last Change: 2011 June 12
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -108,7 +108,7 @@ function! s:Strip(str)
     return substitute(a:str, '\v^[ \t\r\n]*(.{-})[ \t\r\n]*$', '\1', "")
 endfunction
 
-" s:RunCmd() is a helper for functions that runs a shell command. Don't call it
+" s:RunCmd() is a helper for functions that run a shell command. Don't call it
 " directly.
 function! s:RunCmd(cmd, write_output)
     let stderr_temp = tempname()
@@ -423,13 +423,24 @@ let s:rev_info_failed_msg = "[failed to get rev info]"
 
 function! s:GitUnmodified(fname, args)
     if empty(a:args)
-        " Diffing against index version, but use HEAD if it's the same.
+        " Diffing against index version, but if the index version is the same as
+        " HEAD then follow it back to where this version was actually committed.
         " This gives more useful information in the status line.
         call system("git diff-index --cached --quiet HEAD " . a:fname)
-        let commit = v:shell_error ? "" : "HEAD"
+        if v:shell_error
+            let commit = ""
+        else
+            let base_rev = "HEAD"
+        endif
     else
-        " Diffing against a specific revision
-        let cmd = "git rev-parse " . shellescape(a:args[0])
+        let base_rev = a:args[0]
+    endif
+
+    if !exists('commit')
+        " Follow base_rev back to when the current version was actually
+        " committed.
+        let cmd = printf("git log -1 --pretty=format:%%H %s -- %s",
+            \ shellescape(base_rev), shellescape(a:fname))
         let commit = s:Strip(s:GetCmdOutput(cmd))
     endif
 
