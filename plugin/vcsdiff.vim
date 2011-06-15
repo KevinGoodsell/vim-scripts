@@ -466,22 +466,27 @@ endfunction
 function! s:HgUnmodified(fname, args)
     if empty(a:args)
         let rev_arg = ""
+        let rev_range = ""
     else
         let rev_arg = "-r " . shellescape(a:args[0])
+        let rev_range = "-r " . shellescape(a:args[0] . ":0")
     endif
-    let cmd_args = printf("%s %s", rev_arg, shellescape(a:fname))
-    call s:WriteCmdOutput("hg cat " . cmd_args)
+    call s:WriteCmdOutput(printf("hg cat %s %s", rev_arg, shellescape(a:fname)))
 
     try
         let template = "[r:{rev}|br:{branches|nonempty}|{author|person}"
                    \ . "|{date|age}|{desc|firstline}]"
-        let extra_cmd = printf("hg log -l 1 --template %s %s",
-                             \ shellescape(template), cmd_args)
+        let extra_cmd = printf("hg log -l 1 --template %s %s %s",
+                             \ shellescape(template), rev_range,
+                             \ shellescape(a:fname))
         let extra = s:Strip(s:GetCmdOutput(extra_cmd))
     catch
         "call s:Rethrow()
-        let extra = s:rev_info_failed_msg
     endtry
+
+    if !exists("extra") || extra == ""
+        let extra = s:rev_info_failed_msg
+    endif
 
     call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
