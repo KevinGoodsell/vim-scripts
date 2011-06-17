@@ -264,15 +264,31 @@ function! s:SecuritySettings()
     setlocal noswapfile
 endfunction
 
+" GoToChange goes to the buffer state just after the specified change number,
+" which may be 0.
+function! s:GoToChange(change)
+    if a:change == changenr()
+        return
+    elseif a:change == 0
+        silent undo 1
+        silent undo
+    else
+        exec "silent undo " . a:change
+    endif
+endfunction
+
+" ResetModified makes the current change the "unmodified" state for the buffer,
+" and makes any previous "unmodified" state "modified". In other words, calling
+" this after writing makes the undo state that corresponds with the on-disk file
+" not show the [+] modified flag, but makes other undo states show it.
 function! s:ResetModified()
     let cur_change = changenr()
-    let change_count = cur_change - b:gpg_change_nr
-    if change_count > 0
-        " Set 'modified' on the previously 'unmodified' change.
-        exec "silent earlier " . change_count
+
+    if cur_change != b:gpg_change_nr
+        " make b:gpg_change_nr modified
+        call s:GoToChange(b:gpg_change_nr)
         set modified
-        " Move back to the current change.
-        exec "silent undo " . cur_change
+        call s:GoToChange(cur_change)
     endif
 
     let b:gpg_change_nr = cur_change
