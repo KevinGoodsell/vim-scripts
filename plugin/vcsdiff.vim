@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2011 June 12
+" Last Change: 2011 June 17
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -498,13 +498,25 @@ function! s:SvnUnmodified(fname, args)
         let rev_arg = "-r " . shellescape(a:args[0])
     endif
     let cmd_args = printf("%s %s", rev_arg, shellescape(a:fname))
+    " If fname has been added but not yet committed, this gives a rather
+    " unhelpful error. This is kind of svn's fault.
     call s:WriteCmdOutput("svn cat " . cmd_args)
 
     try
         let log = s:GetCmdOutput("svn log -l 1 " . cmd_args)
-        let pieces = matchlist(log, '\v\n(r\d+) \| (.+) \| (.+) \|')
+        " The use of [^\x00] is a little weird. It seems to be the only way to
+        " match "anything except newline" inside a string. Vim uses NUL
+        " internally in place of the newline character, and [\n] seems to only
+        " match the end of the string.
+        let pieces = matchlist(log,
+            \ '\v\n(r\d+) \| (.+) \| (.+) \| [^\x00]+(\n\n[^\x00]*)?')
         if !empty(pieces)
-            let extra = printf("[%s|%s|%s]", pieces[1], pieces[2], pieces[3])
+            " Date/time field looks like:
+            " 2011-06-15 09:22:41 -0700 (Wed, 15 Jun 2011)
+            let date_pieces = matchlist(pieces[3],
+                \ '\v([-0-9]+) 0?([0-9:]+):\d\d ([-+0-9]+) \((.+)\)')
+            let extra = printf("[%s|%s|%s %s|%s]", pieces[1], pieces[2],
+                \ date_pieces[2], date_pieces[4], s:Strip(pieces[4]))
         endif
     catch
         " For debugging:
