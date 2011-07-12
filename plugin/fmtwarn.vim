@@ -318,6 +318,7 @@ function! s:FmtWarnOn(...)
     let b:fmtwarn.enabled = keys(new_warnings)
     let b:fmtwarn.toggle = 1
     call s:FmtWarnRefreshBuffer()
+    call s:FmtWarnReport()
 endfunction
 
 " Same as FmtWarnOn, but sets warnings off, and doesn't change toggle state.
@@ -332,20 +333,13 @@ function! s:FmtWarnOff(...)
 
     let b:fmtwarn.enabled = new_warnings
     call s:FmtWarnRefreshBuffer()
+    call s:FmtWarnReport()
 endfunction
 
 function! s:FmtWarnToggle()
     let b:fmtwarn.toggle = !b:fmtwarn.toggle
     call s:FmtWarnRefreshBuffer()
-    if b:fmtwarn.toggle
-        if len(b:fmtwarn.enabled) == 0
-            echo "FmtWarn on (but no warnings enabled)"
-        else
-            echo "FmtWarn on (" . join(b:fmtwarn.enabled, " ") . ")"
-        endif
-    else
-        echo "FmtWarn off"
-    endif
+    call s:FmtWarnReport()
 endfunction
 
 function! s:FmtWarnArgs(args)
@@ -369,6 +363,18 @@ function! s:FmtWarnArgs(args)
     endfor
 
     return result
+endfunction
+
+function! s:FmtWarnReport()
+    if b:fmtwarn.toggle
+        if len(b:fmtwarn.enabled) == 0
+            echo "FmtWarn is on (but no warnings enabled)"
+        else
+            echo "FmtWarn is on (" . join(b:fmtwarn.enabled, " ") . ")"
+        endif
+    else
+        echo "FmtWarn is off"
+    endif
 endfunction
 
 function! s:FmtWarningCompletion(arglead, cmdline, cursorpos)
