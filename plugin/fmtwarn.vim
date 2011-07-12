@@ -201,11 +201,20 @@ endfunction
 function! s:FmtWarnInitWindow()
     if !exists("w:fmtwarn_matches")
         let priority = g:fmtwarn_match_priority
-        call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', priority)
+
+        " In the following patterns, spaces are paired with non-breaking spaces
+        " (U+A0) so that the two types behave the same.
+
+        " This pattern matches tabs that are NOT preceded by indentation
+        " characters.
+        call matchadd("fmtwarnInnerTab", '\v(^[ \xA0\t]*)@<!\t+', priority)
         call matchadd("fmtwarnLongLine",
                     \ printf('\v%%%dv.+', g:fmtwarn_line_length + 1), priority)
-        call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', priority)
-        call matchadd("fmtwarnTrailingSpace", '\v\s+$', priority)
+        " This pattern matches any indentation (even none) followed by a
+        " space-tab sequence, possibly followed by more indentation
+        call matchadd("fmtwarnMixedIndent", '\v^[ \xA0\t]*[ \xA0]\t[ \xA0\t]*',
+                    \ priority)
+        call matchadd("fmtwarnTrailingSpace", '\v[ \xA0\t]+$', priority)
 
         let w:fmtwarn_matches = {}
         for m in getmatches()
