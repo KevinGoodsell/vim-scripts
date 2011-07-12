@@ -1,5 +1,5 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: 2011 Apr 2
+" Last Change: 2011 Jul 11
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -105,6 +105,31 @@
 "   fmtwarnWarning by default.
 "
 " }}}
+" {{{ OPERATION
+"
+" We use matches (see :h :match) to highlight warnings. This is because
+" syntax-based matches don't necessarily play nice with the language syntax
+" scripts.
+"
+" Matches are per-window, but we want warnings to be per-buffer. To accomplish
+" this, we store a buffer variable (b:fmtwarn) in each buffer and a window
+" variable (w:fmtwarn_matches) in each window. b:fmtwarn stores the intended
+" warning state (whether warnings are currently displayed or not, and which
+" warnings are enabled for the buffer). When a window is created or has its
+" buffer changed, we update it using the information in b:fmtwarn. This update
+" includes turning warning matches on or off as needed.
+"
+" Turning matches off is simply a matter of removing it from the set of window
+" matches (could be done with matchdelete(), but we actually use setmatches() to
+" do it all at once). Turning matches on requires either creating a new match or
+" somehow restoring a previously deleted match. Rather than wasting match IDs by
+" always creating new ones, we really want to restore the old match. This is
+" accomplished by storing all the match information in w:fmtwarn_matches.
+"
+" Newly created buffers are set up by an autocmd on the BufWinEnter event. Newly
+" created windows are likewise set up by an autocmd on the WinEnter event.
+"
+" }}}
 
 if !exists("*matchadd")
     " This Vim doesn't have the necessary features.
@@ -162,115 +187,107 @@ highlight default link fmtwarnMixedIndent fmtwarnWarning
 highlight default link fmtwarnInnerTab fmtwarnWarning
 highlight default link fmtwarnLongLine fmtwarnWarning
 
-" Initialize format warnings for the current buffer and window.
-function! s:FmtWarnInit()
+" Create the buffer variable b:fmtwarn if it doesn't already exist.
+function! s:FmtWarnInitBuffer()
     if !exists("b:fmtwarn")
         let b:fmtwarn = {}
         let b:fmtwarn.toggle = g:fmtwarn_default_toggle
         let b:fmtwarn.enabled = copy(g:fmtwarn_include_warnings)
     endif
+endfunction
 
+" Create the window variable w:fmtwarn_matches and the matches for this window
+" if not already done.
+function! s:FmtWarnInitWindow()
     if !exists("w:fmtwarn_matches")
-        call s:FmtWarnAddWindowMatches()
-    endif
-endfunction
+        let priority = g:fmtwarn_match_priority
+        call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', priority)
+        call matchadd("fmtwarnLongLine",
+                    \ printf('\v%%%dv.+', g:fmtwarn_line_length + 1), priority)
+        call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', priority)
+        call matchadd("fmtwarnTrailingSpace", '\v\s+$', priority)
 
-" Reset warnings based on b:fmtwarn settings. Applies to all windows this
-" buffer appears in.
-function! s:FmtWarnSetBufferWarnings()
-    let bnum = bufnr("")
-    let last_win = winnr("$")
-    for w in range(1, last_win)
-        if winbufnr(w) == bnum
-            call s:FmtWarnSetWindowWarnings(w)
-        endif
-    endfor
-endfunction
-
-" Reset warnings based on b:fmtwarn settings. Applies to the current window,
-" or the window number given as the optional argument.
-function! s:FmtWarnSetWindowWarnings(...)
-    if a:0 == 1
-        let saved_win = winnr()
-        exec a:1 . "wincmd w"
-    endif
-
-    try
-        " Set up buffer and window vars if not already done.
-        call s:FmtWarnInit()
-
-        " Find all the warning highlight groups that should be included for
-        " this window.
-        let include_groups = {}
-        if b:fmtwarn.toggle
-            for warning in b:fmtwarn.enabled
-                let hlgroup = s:hlgroups[warning]
-                let include_groups[hlgroup] = 1
-            endfor
-        endif
-
-        " Modify 'matches' to remove unwanted warnings and include wanted
-        " warnings.
-        let new_matches = []
+        let w:fmtwarn_matches = {}
         for m in getmatches()
-            " Include matches from include_groups, as well as matches that
-            " have nothing to do with this plugin.
-            " Include matches that aren't from this plugin.
-            if m.group !~# '\v^fmtwarn'
-                call add(new_matches, m)
-            " Include matches from include_groups, and remove them so they
-            " don't get double-added.
-            elseif has_key(include_groups, m.group)
-                call add(new_matches, m)
-                unlet include_groups[m.group]
+            if m.group =~# '\v^fmtwarn'
+                let w:fmtwarn_matches[m.group] = m
             endif
         endfor
+    endif
+endfunction
 
-        " Add anything left in include_groups
-        for group in keys(include_groups)
-            call add(new_matches, w:fmtwarn_matches[group])
+" Updates the display of the current buffer (in all windows it appears in) so
+" that the visible warnings match settings in b:fmtwarn.
+function! s:FmtWarnRefreshBuffer()
+    call s:FmtWarnInitBuffer()
+
+    let bnum = bufnr("")
+    let saved_win = winnr()
+    try
+        let last_win = winnr("$")
+        for w in range(1, last_win)
+            if winbufnr(w) == bnum
+                exec w . "wincmd w"
+                call s:FmtWarnRefreshWindow()
+            endif
         endfor
-
-        call setmatches(new_matches)
-
     finally
-        if exists("saved_win")
-            exec saved_win . "wincmd w"
-        endif
+        " Restore original window
+        exec saved_win . "wincmd w"
     endtry
 endfunction
 
-" Adds all the warning matches to a window.
-function! s:FmtWarnAddWindowMatches()
-    let priority = g:fmtwarn_match_priority
-    call matchadd("fmtwarnInnerTab", '\v(^[ \t]*)@<!\t+', priority)
-    call matchadd("fmtwarnLongLine",
-                \ printf('\v%%%dv.+', g:fmtwarn_line_length + 1), priority)
-    call matchadd("fmtwarnMixedIndent", '\v^ +\t[ \t]*', priority)
-    call matchadd("fmtwarnTrailingSpace", '\v\s+$', priority)
+" Updates the display of the current window so the visible warnings match
+" settings in b:fmtwarn.
+function! s:FmtWarnRefreshWindow()
+    call s:FmtWarnInitWindow()
 
-    let w:fmtwarn_matches = {}
-    for m in getmatches()
-        if m.group =~# '\v^fmtwarn'
-            let w:fmtwarn_matches[m.group] = m
-        endif
-    endfor
-endfunction
-
-function! s:FmtWarnCheck()
-    if exists("b:fmtwarn")
-        return 1
+    " Find all the warning highlight groups that should be included for
+    " this window.
+    let include_groups = {}
+    if b:fmtwarn.toggle
+        for warning in b:fmtwarn.enabled
+            let hlgroup = s:hlgroups[warning]
+            let include_groups[hlgroup] = 1
+        endfor
     endif
 
-    echomsg "FmtWarn is not enabled for this buffer"
-    return 0
+    " Modify 'matches' to remove unwanted warnings and include wanted
+    " warnings.
+    let new_matches = []
+    for m in getmatches()
+        " Include matches from include_groups, as well as matches that
+        " have nothing to do with this plugin.
+
+        " Include matches that aren't from this plugin.
+        if m.group !~# '\v^fmtwarn'
+            call add(new_matches, m)
+        " Include matches from include_groups, and remove them so they
+        " don't get double-added.
+        elseif has_key(include_groups, m.group)
+            call add(new_matches, m)
+            unlet include_groups[m.group]
+        endif
+    endfor
+
+    " Add anything left in include_groups
+    for group in keys(include_groups)
+        call add(new_matches, w:fmtwarn_matches[group])
+    endfor
+
+    call setmatches(new_matches)
 endfunction
 
+" Function invoked for FileType event.
 function! s:FmtWarnFileType(ft)
+    " If this filetype is in the list of excluded filetypes, toggle warnings
+    " off.
     if index(g:fmtwarn_exclude_filetypes, a:ft) >= 0
-        call s:FmtWarnInit()
+        " FileType can happen before the other events, so make sure b:fmtwarn
+        " has been set up.
+        call s:FmtWarnInitBuffer()
         let b:fmtwarn.toggle = 0
-        call s:FmtWarnSetBufferWarnings()
+        call s:FmtWarnRefreshBuffer()
     endif
 endfunction
 
@@ -279,7 +296,10 @@ endfunction
 
 augroup FmtWarn
     autocmd!
-    autocmd BufWinEnter,WinEnter * call s:FmtWarnSetWindowWarnings()
+    " BufWinEnter is invoked for newly opened buffers and newly displayed
+    " buffers. WinEnter is invoked when a window is split, so the matches get
+    " set in the newly created window.
+    autocmd BufWinEnter,WinEnter * call s:FmtWarnRefreshBuffer()
     autocmd FileType * call s:FmtWarnFileType(expand("<amatch>"))
 augroup END
 
@@ -289,10 +309,6 @@ augroup END
 " Takes a list of warning names (or 'all'), sets them on for the current
 " buffer. Changes toggle state to 'on'.
 function! s:FmtWarnOn(...)
-    if !s:FmtWarnCheck()
-        return
-    endif
-
     let new_warnings = s:FmtWarnArgs(a:000)
 
     for warning in b:fmtwarn.enabled
@@ -301,15 +317,11 @@ function! s:FmtWarnOn(...)
 
     let b:fmtwarn.enabled = keys(new_warnings)
     let b:fmtwarn.toggle = 1
-    call s:FmtWarnSetBufferWarnings()
+    call s:FmtWarnRefreshBuffer()
 endfunction
 
 " Same as FmtWarnOn, but sets warnings off, and doesn't change toggle state.
 function! s:FmtWarnOff(...)
-    if !s:FmtWarnCheck()
-        return
-    endif
-
     let drop_warnings = s:FmtWarnArgs(a:000)
     let new_warnings = []
     for warning in b:fmtwarn.enabled
@@ -319,15 +331,12 @@ function! s:FmtWarnOff(...)
     endfor
 
     let b:fmtwarn.enabled = new_warnings
-    call s:FmtWarnSetBufferWarnings()
+    call s:FmtWarnRefreshBuffer()
 endfunction
 
 function! s:FmtWarnToggle()
-    if !s:FmtWarnCheck()
-        return
-    endif
     let b:fmtwarn.toggle = !b:fmtwarn.toggle
-    call s:FmtWarnSetBufferWarnings()
+    call s:FmtWarnRefreshBuffer()
     if b:fmtwarn.toggle
         if len(b:fmtwarn.enabled) == 0
             echo "FmtWarn on (but no warnings enabled)"
