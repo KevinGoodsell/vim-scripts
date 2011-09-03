@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2011 June 17
+" Last Change: 2011 September 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -243,7 +243,8 @@ function! s:AddVcsDiff(vcs_name, cmd_name, buffer_func, nargs, help)
     let s:command_names[a:vcs_name] = add(cmds, a:cmd_name)
     if index(s:include, a:vcs_name) != -1
         let s:command_help[a:cmd_name] = a:help
-        if !exists(":" . a:cmd_name)
+        " 2 is for an exact match
+        if exists(":" . a:cmd_name) != 2
             exec printf("command -nargs=%s %s call s:Diff('%s', [<f-args>])",
                       \ a:nargs, a:cmd_name, a:buffer_func)
         endif
