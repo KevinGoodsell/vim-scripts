@@ -1,5 +1,5 @@
 Kevin Goodsell
-Thu, 21 Oct 2010 19:31:59 -0700
+Sat, 03 Sep 2011 08:57:45 -0700
 
 ABOUT
 -----
@@ -21,7 +21,7 @@ plugin/vcsdiff.vim
   Commands for viewing diffs of files in version control systems. Uses
   Vim's internal diff mechanism to show differences between the edited
   version of a file and checked-in versions. Currently supports Git,
-  Mercurial, and Subversion.
+  Mercurial, Subversion, and Perforce.
 
 plugin/runline.vim
 

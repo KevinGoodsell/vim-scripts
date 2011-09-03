@@ -530,6 +530,13 @@ function! s:SvnUnmodified(fname, args)
     call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
 
+function! s:P4Unmodified(fname, args)
+    " TODO
+    " * Set buffer name
+    " * Allow rev arguments
+    call s:WriteCmdOutput("p4 print -q " . a:fname)
+endfunction
+
 " }}}
 " {{{ VCS COMMANDS
 
@@ -547,6 +554,9 @@ let s:svn_help = "SvnDiff [revision] - Diff against the specified revision "
     \ . "or, if no revision is given, the version in HEAD. Supports revision "
     \ . "formats for svn's -r option."
 call s:AddVcsDiff("svn", "SvnDiff", "s:SvnUnmodified", "?", s:svn_help)
+
+let s:p4_help = "P4Diff - Diff against the latest revision."
+call s:AddVcsDiff('p4', 'P4Diff', "s:P4Unmodified", "0", s:p4_help)
 
 " }}}
 
