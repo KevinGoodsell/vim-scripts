@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2011 September 3
+" Last Change: 2011 September 13
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -531,10 +531,29 @@ function! s:SvnUnmodified(fname, args)
 endfunction
 
 function! s:P4Unmodified(fname, args)
-    " TODO
-    " * Set buffer name
-    " * Allow rev arguments
-    call s:WriteCmdOutput("p4 print -q " . a:fname)
+    call s:WriteCmdOutput("p4 print -q " . shellescape(a:fname))
+
+    try
+        let log = s:GetCmdOutput("p4 filelog -m 1 -t -L " .
+            \ shellescape(a:fname))
+        " The comment in SvnUnmodified applies here as well. [^\x00] is for
+        " "anything except newline".
+        let pieces = matchlist(log,
+            \ '\v\n\.\.\. #(\d+) change (\d+) \w+ on (\d{4}/\d\d/\d\d) ' .
+            \ '0?([0-9:]+):\d\d by (\w+)\@.*\n\n\s+([^\x00]*)')
+        if !empty(pieces)
+            let extra = printf("[%s|%s|%s %s|%s]", pieces[2], pieces[5],
+                \ pieces[3], pieces[4], pieces[6])
+        endif
+    catch
+        " For debugging:
+        "call s:Rethrow()
+    endtry
+    if !exists("extra")
+        let extra = s:rev_info_failed_msg
+    endif
+
+    call s:SetBufName(printf("%s %s", a:fname, extra))
 endfunction
 
 " }}}
