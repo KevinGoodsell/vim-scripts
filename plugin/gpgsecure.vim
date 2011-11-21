@@ -232,7 +232,7 @@ function! s:GpgRead(filename)
 endfunction
 
 function! s:GpgWrite(filename)
-    let same_file = a:filename == expand("%")
+    let same_file = resolve(a:filename) == resolve(expand("%"))
     let overwrite = v:cmdbang || &writeany
     let file_exists = glob(a:filename, 1) != ""
 
