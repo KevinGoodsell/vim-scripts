@@ -292,7 +292,11 @@ function! s:Diff(funcname, args)
 
         " Most systems will require being in the directory of the file, or at
         " least in the repository working dir.
-        exec "cd " . fnameescape(expand("%:h"))
+        let filedir = expand("%:h")
+        if filedir == ""
+            let filedir = "."
+        endif
+        exec "cd " . fnameescape(filedir)
         let fname = expand("%:t")
 
         " Prepare starting buffer
