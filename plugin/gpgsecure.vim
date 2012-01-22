@@ -1,5 +1,5 @@
 " Vim global plugin for editing encrypted files.
-" Last Change: 2011 June 16
+" Last Change: 2011 November 20
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
