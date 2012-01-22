@@ -1,5 +1,5 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2011 September 13
+" Last Change: 2012 January 21
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -578,8 +578,8 @@ let s:svn_help = "SvnDiff [revision] - Diff against the specified revision "
     \ . "formats for svn's -r option."
 call s:AddVcsDiff("svn", "SvnDiff", "s:SvnUnmodified", "?", s:svn_help)
 
-let s:p4_help = "P4Diff - Diff against the latest revision."
-call s:AddVcsDiff('p4', 'P4Diff', "s:P4Unmodified", "0", s:p4_help)
+let s:p4_help = "PerfDiff - Diff against the latest revision."
+call s:AddVcsDiff('p4', 'PerfDiff', "s:P4Unmodified", "0", s:p4_help)
 
 " }}}
 
