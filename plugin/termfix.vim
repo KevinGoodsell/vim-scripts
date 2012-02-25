@@ -1,11 +1,11 @@
 " Vim global plugin to fix certain terminals.
-" Last Change: 2011 Apr 17
+" Last Change: 2012 Feb 25
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010 Kevin Goodsell
+" Copyright 2010-2012 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
@@ -60,6 +60,11 @@
 "    can make the :map and :map! output very messy. Mappings are used by
 "    default.
 "
+"  g:termfix_bracketed_paste
+"
+"    Determines whether to use xterm's bracketed paste mode. Allows pasting in
+"    xterm without setting the 'paste' option first. Defaults to 0.
+"
 "  g:termfix_testing
 "
 "    If this evaluates as true, extra features for testing are enabled.
@@ -87,6 +92,11 @@ endif
 " Use :map when :set isn't possible?
 if !exists("g:termfix_map")
     let g:termfix_map = 1
+endif
+
+" Enable xterm's bracketed paste mode?
+if !exists("g:termfix_bracketed_paste")
+    let g:termfix_bracketed_paste = 0
 endif
 
 if !exists("g:termfix_testing")
@@ -178,6 +188,10 @@ function! s:SetupTerm(term, multiplexer)
             exec "set <F2>=\e[1;*Q"
             exec "set <F3>=\e[1;*R"
             exec "set <F4>=\e[1;*S"
+
+            if g:termfix_bracketed_paste
+                call s:XtermBracketedPaste()
+            endif
         endif
 
         exec "set <F5>=\e[15;*~"
@@ -321,10 +335,39 @@ function! s:FixTerm()
     call s:SetupTerm(g:termfix_term, g:termfix_multiplexer)
 endfunction
 
+function! <SID>BeginPaste(result)
+    set paste
+    return a:result
+endfunction
+
+function! s:XtermBracketedPaste()
+    " XTerm's bracketed paste mode is activated with \e[?2004h and deactivated
+    " with \e[?2004l. While active, pastes begin with \e[200~ and end with
+    " \e[201~.
+
+    " Enable and disable bracketed paste mode on terminal init and de-init:
+    let &t_ti .= "\e[?2004h"
+    let &t_te = "\e[?2004l" . &t_te
+
+    " Begin paste mode from insert or normal mode:
+    inoremap <expr> <special> <esc>[200~ <SID>BeginPaste("")
+    nnoremap <expr> <special> <esc>[200~ <SID>BeginPaste("a")
+    " When pasting in the command line, ignore the bracketing sequences.
+    " Unfortunately this makes ESC not take effect right away, which can be
+    " annoying.
+    cnoremap <special> <esc>[200~ <NOP>
+    cnoremap <special> <esc>[201~ <NOP>
+
+    " End paste mode:
+    let &pastetoggle = "\e[201~"
+endfunction
+
 augroup TermFix
     au!
-    au TermChanged,VimEnter * call s:FixTerm()
+    au TermChanged * call s:FixTerm()
 augroup END
+
+call s:FixTerm()
 
 if g:termfix_testing
     " This adds imap mappings for the function and application keys, causing
