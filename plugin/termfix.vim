@@ -107,8 +107,8 @@ let s:termfix_mappings = []
 
 function! s:MapKey(symbol, code)
     if g:termfix_map
-        exec printf("map %s <%s>", a:code, a:symbol)
-        exec printf("map! %s <%s>", a:code, a:symbol)
+        exec printf("map <special> %s <%s>", a:code, a:symbol)
+        exec printf("map! <special> %s <%s>", a:code, a:symbol)
         call add(s:termfix_mappings, a:code)
     endif
 endfunction
