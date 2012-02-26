@@ -308,31 +308,38 @@ function! s:FixTerm()
 
     call s:ClearMappings()
 
+    " Figure out the terminal and multiplexer.
+    let terminal = g:termfix_term
+    let multiplexer = g:termfix_multiplexer
+
     if &term =~# '\v^screen'
-        if g:termfix_multiplexer == "AUTO"
-            let g:termfix_multiplexer = "screen"
+        if multiplexer == "AUTO"
+            let multiplexer = "screen"
         endif
-        if g:termfix_term == "AUTO"
+        if terminal == "AUTO"
+            " Maybe 'term' is screen.<terminal>
             if &term =~# '\v^screen\.'
-                let g:termfix_term = matchstr(&term, '\v^screen\.\zs.*')
+                let terminal = matchstr(&term, '\v^screen\.\zs.*')
+            " Maybe $COLORTERM is set
             elseif !empty($COLORTERM)
-                let g:termfix_term = $COLORTERM
+                let terminal = $COLORTERM
+            " Maybe $XTERM_VERSION is set
             elseif !empty($XTERM_VERSION)
-                let g:termfix_term = "xterm"
+                let terminal = "xterm"
             else
-                let g:termfix_term = ""
+                let terminal = ""
             endif
         endif
     else
-        if g:termfix_multiplexer == "AUTO"
-            let g:termfix_multiplexer = ""
+        if multiplexer == "AUTO"
+            let multiplexer = ""
         endif
-        if g:termfix_term == "AUTO"
-            let g:termfix_term = &term
+        if terminal == "AUTO"
+            let terminal = &term
         endif
     endif
 
-    call s:SetupTerm(g:termfix_term, g:termfix_multiplexer)
+    call s:SetupTerm(terminal, multiplexer)
 endfunction
 
 function! <SID>BeginPaste(result)
