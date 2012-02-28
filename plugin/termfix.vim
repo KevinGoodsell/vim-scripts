@@ -1,5 +1,5 @@
 " Vim global plugin to fix certain terminals.
-" Last Change: 2012 Feb 25
+" Last Change: 2012 Feb 27
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -357,13 +357,13 @@ function! s:XtermBracketedPaste()
     let &t_te = "\e[?2004l" . &t_te
 
     " Begin paste mode from insert or normal mode:
-    inoremap <expr> <special> <esc>[200~ <SID>BeginPaste("")
-    nnoremap <expr> <special> <esc>[200~ <SID>BeginPaste("a")
+    imap <expr> <special> <esc>[200~ <SID>BeginPaste("")
+    nmap <expr> <special> <esc>[200~ <SID>BeginPaste("i")
     " When pasting in the command line, ignore the bracketing sequences.
     " Unfortunately this makes ESC not take effect right away, which can be
     " annoying.
-    cnoremap <special> <esc>[200~ <NOP>
-    cnoremap <special> <esc>[201~ <NOP>
+    cmap <special> <esc>[200~ <NOP>
+    cmap <special> <esc>[201~ <NOP>
 
     " End paste mode:
     let &pastetoggle = "\e[201~"
