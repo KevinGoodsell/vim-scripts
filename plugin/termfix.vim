@@ -1,5 +1,5 @@
 " Vim global plugin to fix certain terminals.
-" Last Change: 2012 Feb 27
+" Last Change: 2012 March 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -63,7 +63,15 @@
 "  g:termfix_bracketed_paste
 "
 "    Determines whether to use xterm's bracketed paste mode. Allows pasting in
-"    xterm without setting the 'paste' option first. Defaults to 0.
+"    xterm without setting the 'paste' option first. This uses mappings
+"    regardless of the g:termfix_map option. Defaults to 0.
+"
+"    Using this option has an unfortunate side effect: When you press Esc to
+"    leave the command line there will be a delay. This is because cmap mappings
+"    are defined to ignore the escape codes that get inserted at the beginning
+"    and end of each paste, and Vim doesn't know whether the Esc should be
+"    interpretted as the first character in a mapping. The 'timeoutlen' option
+"    could be used to shorten the delay, but this will affect all your mappings.
 "
 "  g:termfix_testing
 "
@@ -103,13 +111,15 @@ if !exists("g:termfix_testing")
     let g:termfix_testing = 0
 endif
 
-let s:termfix_mappings = []
+" List of commands to "undo" settings we've applied
+let s:termfix_undo = []
 
 function! s:MapKey(symbol, code)
     if g:termfix_map
         exec printf("map <special> %s <%s>", a:code, a:symbol)
         exec printf("map! <special> %s <%s>", a:code, a:symbol)
-        call add(s:termfix_mappings, a:code)
+        call add(s:termfix_undo, "unmap " . a:code)
+        call add(s:termfix_undo, "unmap! " . a:code)
     endif
 endfunction
 
@@ -135,13 +145,12 @@ function! s:MapRxvtMod(symbol, code, ...)
     endfor
 endfunction
 
-function! s:ClearMappings()
-    for code in s:termfix_mappings
-        exec "unmap " . code
-        exec "unmap! " . code
+function! s:ClearSettings()
+    for code in reverse(s:termfix_undo)
+        exec code
     endfor
 
-    let s:termfix_mappings = []
+    let s:termfix_undo = []
 endfunction
 
 function! s:SetupTerm(term, multiplexer)
@@ -189,7 +198,7 @@ function! s:SetupTerm(term, multiplexer)
             exec "set <F3>=\e[1;*R"
             exec "set <F4>=\e[1;*S"
 
-            if g:termfix_bracketed_paste
+            if g:termfix_bracketed_paste && a:multiplexer == ""
                 call s:XtermBracketedPaste()
             endif
         endif
@@ -306,7 +315,7 @@ function! s:FixTerm()
         return
     endif
 
-    call s:ClearMappings()
+    call s:ClearSettings()
 
     " Figure out the terminal and multiplexer.
     let terminal = g:termfix_term
@@ -359,13 +368,18 @@ function! s:XtermBracketedPaste()
     " Begin paste mode from insert or normal mode:
     imap <expr> <special> <esc>[200~ <SID>BeginPaste("")
     nmap <expr> <special> <esc>[200~ <SID>BeginPaste("i")
+    call add(s:termfix_undo, "iunmap <special> <esc>[200~")
+    call add(s:termfix_undo, "nunmap <special> <esc>[200~")
     " When pasting in the command line, ignore the bracketing sequences.
     " Unfortunately this makes ESC not take effect right away, which can be
     " annoying.
     cmap <special> <esc>[200~ <NOP>
     cmap <special> <esc>[201~ <NOP>
+    call add(s:termfix_undo, "cunmap <special> <esc>[200~")
+    call add(s:termfix_undo, "cunmap <special> <esc>[201~")
 
     " End paste mode:
+    call add(s:termfix_undo, "let &pastetoggle = " . string(&pastetoggle))
     let &pastetoggle = "\e[201~"
 endfunction
 
