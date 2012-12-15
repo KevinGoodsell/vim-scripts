@@ -543,11 +543,11 @@ function! s:P4Unmodified(fname, args)
         " The comment in SvnUnmodified applies here as well. [^\x00] is for
         " "anything except newline".
         let pieces = matchlist(log,
-            \ '\v\n\.\.\. #(\d+) change (\d+) \w+ on (\d{4}/\d\d/\d\d) ' .
+            \ '\v\n\.\.\. #\d+ change (\d+) %(\w|/)+ on (\d{4}/\d\d/\d\d) ' .
             \ '0?([0-9:]+):\d\d by (\w+)\@.*\n\n\s+([^\x00]*)')
         if !empty(pieces)
-            let extra = printf("[%s|%s|%s %s|%s]", pieces[2], pieces[5],
-                \ pieces[3], pieces[4], pieces[6])
+            let extra = printf("[%s|%s|%s %s|%s]", pieces[1], pieces[4],
+                \ pieces[2], pieces[3], pieces[5])
         endif
     catch
         " For debugging:
