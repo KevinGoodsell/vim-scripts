@@ -125,6 +125,14 @@ function! s:PadString(str, width, ...)
     endif
 endfunction
 
+" Vim's help for filereadable() suggests glob() as a way to simply check if a
+" file exists. This fails in several ways (e.g., filenames that contain special
+" characters) and creates potential security holes since glob() allows arbitrary
+" shell commands by using backticks.
+function! s:FileExists(name)
+    return getfperm(a:name) != ''
+endfunction
+
 " }}}
 " {{{ HEX TOGGLING
 
@@ -150,7 +158,7 @@ function! s:HexToggle(bang)
         endif
 
         " This checks for empty filenames and non-existing files.
-        if glob(expand("%")) == ""
+        if !s:FileExists(expand("%"))
             echoerr "file doesn't exist (write to a file first!)"
         endif
 
@@ -243,14 +251,14 @@ function! s:HexWrite(fpath)
         endif
 
         " Don't overwrite an existing file unless forced.
-        if !same_file && !v:cmdbang && glob(target) != ""
+        if !same_file && !v:cmdbang && s:FileExists(target)
             " It seems like this should produce the expected error, but for
             " some reason it succeeds instead. No idea why.
             "exec "write " . fnameescape(target)
             echoerr "File exists (add ! to override)"
         endif
 
-        exec "silent write !xxd -r > " . fnameescape(target)
+        exec "silent write !xxd -r > " . shellescape(target, 1)
         if v:shell_error != 0
             echoerr "failed to write file " . string(target)
         endif
@@ -271,7 +279,7 @@ function! s:HexRead(fpath)
         " Disabling undo during the read makes it so you can't undo back to an
         " empty buffer. Might also be faster.
         set undolevels=-1
-        exec "silent read !xxd -g1 " . fnameescape(a:fpath)
+        exec "silent read !xxd -g1 " . shellescape(a:fpath, 1)
         if v:shell_error != 0
             echoerr "failed to read file " . string(a:fpath)
         endif
