@@ -183,6 +183,14 @@ endfunction
 
 " }}}
 
+" Vim's help for filereadable() suggests glob() as a way to simply check if a
+" file exists. This fails in several ways (e.g., filenames that contain special
+" characters) and creates potential security holes since glob() allows arbitrary
+" shell commands by using backticks.
+function! s:FileExists(name)
+    return getfperm(a:name) != ''
+endfunction
+
 function! s:ShellRead(cmd)
     return s:ShellCmd("read !" . a:cmd)
 endfunction
@@ -216,12 +224,10 @@ function! s:ErrorWrapper(func, ...)
 endfunction
 
 function! s:GpgRead(filename)
-    let file_exists = glob(a:filename, 1) != ""
-
     call s:SecuritySettings()
     setlocal buftype=acwrite
 
-    if file_exists
+    if s:FileExists(a:filename)
         let saved_undolevels = &undolevels
         set undolevels=-1
         try
@@ -252,9 +258,8 @@ endfunction
 function! s:GpgWrite(filename)
     let same_file = resolve(a:filename) == resolve(expand("%"))
     let overwrite = v:cmdbang || &writeany
-    let file_exists = glob(a:filename, 1) != ""
 
-    if !same_file && !overwrite && file_exists
+    if !same_file && !overwrite && s:FileExists(a:filename)
         echoerr "File exists (add ! to override)"
         " As long as we're in a :try block, this return shouldn't actually
         " be needed, but it doesn't hurt.
