@@ -99,6 +99,16 @@
 "     A string with options that will be passed to gpg for encrypting.
 "     Default: "--symmetric"
 "
+"   g:gpg_sleep_ms
+"     This option provides a time in milliseconds for gpgsecure to sleep before
+"     invoking gpg. This is a work-around for issues that can arise when gpg is
+"     invoked during vim startup, when the two processes compete for terminal
+"     input. If, when starting vim to edit a .gpg file, you see unexpected
+"     characters on the screen or experience occasional password verification
+"     errors, try increasing this. The same problems should not be seen when
+"     opening a .gpg file from an already-running vim instance.
+"     Default: 100
+"
 " }}}
 " {{{ ISSUES
 "
@@ -130,6 +140,9 @@ if !exists("g:gpg_read_options")
 endif
 if !exists("g:gpg_write_options")
     let g:gpg_write_options = "--symmetric"
+endif
+if !exists("g:gpg_sleep_ms")
+    let g:gpg_sleep_ms = 100
 endif
 
 augroup GpgSecure
@@ -212,6 +225,11 @@ function! s:GpgRead(filename)
         let saved_undolevels = &undolevels
         set undolevels=-1
         try
+            " Sleep to allow time for vim to finish starting up before invoking
+            " gpg. Otherwise input coming from the terminal during
+            " initialization which is intended for vim could get picked up by
+            " gpg instead.
+            exec printf("sleep %dm", g:gpg_sleep_ms)
             call s:ShellRead(
                 \ printf("gpg --output - %s %s %s", g:gpg_options,
                        \ g:gpg_read_options, fnameescape(a:filename)))
