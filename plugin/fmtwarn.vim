@@ -1,5 +1,5 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: 2011 Jul 11
+" Last Change: 2014 Sept 21
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -120,11 +120,11 @@
 " includes turning warning matches on or off as needed.
 "
 " Turning matches off is simply a matter of removing it from the set of window
-" matches (could be done with matchdelete(), but we actually use setmatches() to
-" do it all at once). Turning matches on requires either creating a new match or
-" somehow restoring a previously deleted match. Rather than wasting match IDs by
-" always creating new ones, we really want to restore the old match. This is
-" accomplished by storing all the match information in w:fmtwarn_matches.
+" matches (using matchdelete()). Turning matches on requires either creating a
+" new match or somehow restoring a previously deleted match. Rather than wasting
+" match IDs by always creating new ones, we really want to restore the old
+" match. This is accomplished by storing all the match information in
+" w:fmtwarn_matches.
 "
 " Newly created buffers are set up by an autocmd on the BufWinEnter event. Newly
 " created windows are likewise set up by an autocmd on the WinEnter event.
@@ -261,30 +261,26 @@ function! s:FmtWarnRefreshWindow()
         endfor
     endif
 
-    " Modify 'matches' to remove unwanted warnings and include wanted
-    " warnings.
-    let new_matches = []
     for m in getmatches()
-        " Include matches from include_groups, as well as matches that
-        " have nothing to do with this plugin.
-
-        " Include matches that aren't from this plugin.
+        " Skip matches that aren't from this plugin.
         if m.group !~# '\v^fmtwarn'
-            call add(new_matches, m)
-        " Include matches from include_groups, and remove them so they
-        " don't get double-added.
-        elseif has_key(include_groups, m.group)
-            call add(new_matches, m)
+            continue
+        endif
+
+        if has_key(include_groups, m.group)
+            " This match is desired and already present, so leave it alone.
             unlet include_groups[m.group]
+        else
+            " This match is present but not desired, so delete it.
+            call matchdelete(m.id)
         endif
     endfor
 
-    " Add anything left in include_groups
+    " Anything left in include_groups is desired but not present, so add it.
     for group in keys(include_groups)
-        call add(new_matches, w:fmtwarn_matches[group])
+        let match = w:fmtwarn_matches[group]
+        call matchadd(match.group, match.pattern, match.priority, match.id)
     endfor
-
-    call setmatches(new_matches)
 endfunction
 
 " Function invoked for FileType event.
