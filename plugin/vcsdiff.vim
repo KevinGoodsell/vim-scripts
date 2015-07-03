@@ -447,6 +447,12 @@ function! s:GitUnmodified(fname, args)
         let cmd = printf("git log -1 --pretty=format:%%H %s -- %s",
             \ shellescape(base_rev), shellescape(a:fname))
         let commit = s:Strip(s:GetCmdOutput(cmd))
+        if commit == ""
+            " This means that no revision was found for this file going back
+            " from the given commit. For example, the user tried to diff against
+            " a branch that doesn't contain this file.
+            throw "No previous revision found"
+        endif
     endif
 
     let prefix = s:Strip(s:GetCmdOutput("git rev-parse --show-prefix"))
