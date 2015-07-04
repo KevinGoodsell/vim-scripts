@@ -1,11 +1,11 @@
 " Vim global plugin to diff a buffer against an earlier version in a VCS.
-" Last Change: 2012 January 21
+" Last Change: 2015 July 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010 Kevin Goodsell
+" Copyright 2010-2015 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
