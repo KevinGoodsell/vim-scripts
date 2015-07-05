@@ -194,6 +194,31 @@ highlight default link fmtwarnMixedIndent fmtwarnWarning
 highlight default link fmtwarnInnerTab fmtwarnWarning
 highlight default link fmtwarnLongLine fmtwarnWarning
 
+function! s:FmtWarnWarning(msg)
+    echohl WarningMsg
+    try
+        redraw
+        echo a:msg
+    finally
+        echohl NONE
+    endtry
+endfunction
+
+" This is the central place to determine if a buffer should not have this plugin
+" active at all. The command line window, for example, doesn't work at all.
+function! s:FmtWarnExcludeBuffer()
+    return &buftype ==# "nofile"
+endfunction
+
+function! s:FmtWarnExcludeBufferWithWarning()
+    if s:FmtWarnExcludeBuffer()
+        call s:FmtWarnWarning("FmtWarn not supported in this buffer.")
+        return 1
+    endif
+
+    return 0
+endfunction
+
 " Create the buffer variable b:fmtwarn if it doesn't already exist.
 function! s:FmtWarnInitBuffer()
     if !exists("b:fmtwarn")
@@ -257,6 +282,10 @@ endfunction
 " Updates the display of the current buffer (in all windows it appears in) so
 " that the visible warnings match settings in b:fmtwarn.
 function! s:FmtWarnRefreshBuffer()
+    if s:FmtWarnExcludeBuffer()
+        return
+    endif
+
     call s:FmtWarnInitBuffer()
 
     let bnum = bufnr("")
@@ -314,6 +343,10 @@ endfunction
 
 " Function invoked for FileType event.
 function! s:FmtWarnFileType(ft)
+    if s:FmtWarnExcludeBuffer()
+        return
+    endif
+
     " If this filetype is in the list of excluded filetypes, toggle warnings
     " off.
     if index(g:fmtwarn_exclude_filetypes, a:ft) >= 0
@@ -343,6 +376,10 @@ augroup END
 " Takes a list of warning names (or 'all'), sets them on for the current
 " buffer. Changes toggle state to 'on'.
 function! s:FmtWarnOn(...)
+    if s:FmtWarnExcludeBufferWithWarning()
+        return
+    endif
+
     let new_warnings = s:FmtWarnArgs(a:000)
 
     for warning in b:fmtwarn.enabled
@@ -357,6 +394,10 @@ endfunction
 
 " Same as FmtWarnOn, but sets warnings off, and doesn't change toggle state.
 function! s:FmtWarnOff(...)
+    if s:FmtWarnExcludeBufferWithWarning()
+        return
+    endif
+
     let drop_warnings = s:FmtWarnArgs(a:000)
     let new_warnings = []
     for warning in b:fmtwarn.enabled
@@ -371,6 +412,10 @@ function! s:FmtWarnOff(...)
 endfunction
 
 function! s:FmtWarnToggle()
+    if s:FmtWarnExcludeBufferWithWarning()
+        return
+    endif
+
     let b:fmtwarn.toggle = !b:fmtwarn.toggle
     call s:FmtWarnRefreshBuffer()
     call s:FmtWarnReport()
@@ -379,11 +424,15 @@ endfunction
 " Implementation of the FmtWarnLineLength command. If the optional argument is
 " given, it is the new length.
 function! s:FmtWarnLineLength(...)
+    if s:FmtWarnExcludeBufferWithWarning()
+        return
+    endif
+
     if a:0 == 0
         echo b:fmtwarn.line_length
     else
         if a:1 !~# '\v^\d+$'
-            echoerr "Bad number format: " . a:1
+            call s:FmtWarnWarning("Bad number format: " . a:1)
             return
         endif
 
