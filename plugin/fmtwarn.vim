@@ -1,11 +1,11 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: 2014 Sept 21
+" Last Change: 2015 July 4
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010 Kevin Goodsell
+" Copyright 2010-2015 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
@@ -67,12 +67,19 @@
 "   warnings without forgetting which warnings were in use, and restoring
 "   them later.
 "
+" FmtWarnLineLength [length]
+"   Set the line length for this buffer. Characters beyond this point in the
+"   line will be highlighted. Without an argument the current length is printed.
+"   This can be used in a FileType autocmd if you use different line lengths
+"   with different file types. The 'textwidth' setting is not affected by this,
+"   but it might be a good idea to set it to the same value.
+"
 " Configuration:
 "
 " Configuration options are available as variables and as highlight groups:
 "
-" g:fmtwarn_line_length
-"   This is the line length after which the long-line warning kicks in.
+" g:fmtwarn_default_line_length
+"   This is the default line length after which the long-line warning kicks in.
 "   Default is 80.
 "
 " g:fmtwarn_default_toggle
@@ -156,8 +163,8 @@ let s:warnings = sort(keys(s:hlgroups))
 
 " {{{ USER OPTIONS
 
-if !exists("g:fmtwarn_line_length")
-    let g:fmtwarn_line_length = 80
+if !exists("g:fmtwarn_default_line_length")
+    let g:fmtwarn_default_line_length = 80
 endif
 
 if !exists("g:fmtwarn_default_toggle")
@@ -192,37 +199,59 @@ function! s:FmtWarnInitBuffer()
     if !exists("b:fmtwarn")
         let b:fmtwarn = {}
         let b:fmtwarn.toggle = g:fmtwarn_default_toggle
+        let b:fmtwarn.line_length = g:fmtwarn_default_line_length
         let b:fmtwarn.enabled = copy(g:fmtwarn_include_warnings)
     endif
 endfunction
 
-" Create the window variable w:fmtwarn_matches and the matches for this window
-" if not already done.
-function! s:FmtWarnInitWindow()
-    if !exists("w:fmtwarn_matches")
-        let priority = g:fmtwarn_match_priority
+function! s:FmtWarnGetMatch(group_name)
+    for m in getmatches()
+        if m.group ==# a:group_name
+            return m
+        endif
+    endfor
 
-        " In the following patterns, spaces are paired with non-breaking spaces
-        " (U+A0) so that the two types behave the same.
+    return {}
+endfunction
 
-        " This pattern matches tabs that are NOT preceded by indentation
-        " characters.
-        call matchadd("fmtwarnInnerTab", '\v(^[ \xA0\t]*)@<!\t+', priority)
-        call matchadd("fmtwarnLongLine",
-                    \ printf('\v%%%dv.+', g:fmtwarn_line_length + 1), priority)
-        " This pattern matches any indentation (even none) followed by a
-        " space-tab sequence, possibly followed by more indentation
-        call matchadd("fmtwarnMixedIndent", '\v^[ \xA0\t]*[ \xA0]\t[ \xA0\t]*',
-                    \ priority)
-        call matchadd("fmtwarnTrailingSpace", '\v[ \xA0\t]+$', priority)
-
-        let w:fmtwarn_matches = {}
-        for m in getmatches()
-            if m.group =~# '\v^fmtwarn'
-                let w:fmtwarn_matches[m.group] = m
-            endif
-        endfor
+" Add a match if it doesn't exist, or replace it if it does exist. Matches are
+" identified by the group name. In addition to setting match for this window,
+" also updates w:fmtwarn_matches.
+function! s:FmtWarnAddOrUpdateMatch(group, pattern)
+    let match = s:FmtWarnGetMatch(a:group)
+    if empty(match)
+        " No such match has been created. Do it now.
+        call matchadd(a:group, a:pattern, g:fmtwarn_match_priority)
+    else
+        " The match exists, so we will update it while maintaining the id. That
+        " means deleting then adding with the new pattern, but the old match id.
+        call matchdelete(match.id)
+        call matchadd(a:group, a:pattern, g:fmtwarn_match_priority, match.id)
     endif
+
+    " Add it to the window matches, overwriting any old version.
+    let w:fmtwarn_matches[a:group] = s:FmtWarnGetMatch(a:group)
+endfunction
+
+" Add or update the matches for the given window. Used to initially create the
+" matches and to update the match patterns (which is required for changing the
+" allowed line length).
+function! s:FmtWarnRefreshWindowMatches()
+    let w:fmtwarn_matches = {}
+
+    " In the following patterns, spaces are paired with non-breaking spaces
+    " (U+A0) so that the two types behave the same.
+
+    " This pattern matches tabs that are NOT preceded by indentation
+    " characters.
+    call s:FmtWarnAddOrUpdateMatch("fmtwarnInnerTab", '\v(^[ \xA0\t]*)@<!\t+')
+    call s:FmtWarnAddOrUpdateMatch("fmtwarnLongLine",
+            \ printf('\v%%%dv.+', b:fmtwarn.line_length + 1))
+    " This pattern matches any indentation (even none) followed by a
+    " space-tab sequence, possibly followed by more indentation
+    call s:FmtWarnAddOrUpdateMatch("fmtwarnMixedIndent",
+            \ '\v^[ \xA0\t]*[ \xA0]\t[ \xA0\t]*')
+    call s:FmtWarnAddOrUpdateMatch("fmtwarnTrailingSpace", '\v[ \xA0\t]+$')
 endfunction
 
 " Updates the display of the current buffer (in all windows it appears in) so
@@ -249,7 +278,7 @@ endfunction
 " Updates the display of the current window so the visible warnings match
 " settings in b:fmtwarn.
 function! s:FmtWarnRefreshWindow()
-    call s:FmtWarnInitWindow()
+    call s:FmtWarnRefreshWindowMatches()
 
     " Find all the warning highlight groups that should be included for
     " this window.
@@ -347,10 +376,28 @@ function! s:FmtWarnToggle()
     call s:FmtWarnReport()
 endfunction
 
+" Implementation of the FmtWarnLineLength command. If the optional argument is
+" given, it is the new length.
+function! s:FmtWarnLineLength(...)
+    if a:0 == 0
+        echo b:fmtwarn.line_length
+    else
+        if a:1 !~# '\v^\d+$'
+            echoerr "Bad number format: " . a:1
+            return
+        endif
+
+        " Make sure the buffer variable exists.
+        call s:FmtWarnInitBuffer()
+        let b:fmtwarn.line_length = str2nr(a:1)
+        call s:FmtWarnRefreshBuffer()
+    endif
+endfunction
+
 function! s:FmtWarnArgs(args)
     let warnings = []
     for arg in a:args
-        if arg == "all"
+        if arg ==# "all"
             let warnings = copy(s:warnings)
             break
         endif
@@ -391,6 +438,7 @@ command! -nargs=* -complete=custom,s:FmtWarningCompletion
 command! -nargs=+ -complete=custom,s:FmtWarningCompletion
     \ FmtWarnOff call s:FmtWarnOff(<f-args>)
 command! FmtWarnToggle call s:FmtWarnToggle()
+command! -nargs=? FmtWarnLineLength call s:FmtWarnLineLength(<f-args>)
 
 " }}}
 
