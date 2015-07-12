@@ -1,11 +1,11 @@
 " Vim global plugin for logging autocmds
-" Last Change: 2010 Nov 11
+" Last Change: 2015 July 12
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010 Kevin Goodsell
+" Copyright 2010-2015 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
@@ -160,6 +160,10 @@ function! s:AddAutoCmd(name)
 endfunction
 
 function! s:ExecWithLogging(cmd)
+    if a:cmd =~ "^[\"']"
+        echoerr "Command should not be quoted."
+    endif
+
     " Initialize group
     augroup AutoCLog
         autocmd!
