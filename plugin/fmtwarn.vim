@@ -207,7 +207,11 @@ endfunction
 " This is the central place to determine if a buffer should not have this plugin
 " active at all. The command line window, for example, doesn't work at all.
 function! s:FmtWarnExcludeBuffer()
-    return &buftype ==# "nofile"
+    " Hard to say what would be a reliable way to identify the command line
+    " window.
+    let is_command_line_window = &buftype ==# "nofile" && &statusline == ""
+
+    return is_command_line_window
 endfunction
 
 function! s:FmtWarnExcludeBufferWithWarning()
