@@ -199,7 +199,7 @@ function! HexNewBuffer(bang, saved_settings)
     try
         let b:hex_original_bufnr = original_bufnr
         let b:hex_status_info = ""
-        set buftype=acwrite bufhidden=wipe
+        set buftype=acwrite bufhidden=wipe matchpairs=
         let &l:statusline = g:hex_statusline
         exec printf("silent file %s [hex]", fnameescape(fname))
 
