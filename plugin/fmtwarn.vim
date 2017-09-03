@@ -1,11 +1,11 @@
 " Vim global plugin for highlighting questionable spacing and long lines
-" Last Change: 2015 July 4
+" Last Change: 2017 Sept 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010-2015 Kevin Goodsell
+" Copyright 2010-2017 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
@@ -283,6 +283,22 @@ function! s:FmtWarnRefreshWindowMatches()
     call s:FmtWarnAddOrUpdateMatch("fmtwarnTrailingSpace", '\v[ \xA0\t]+$')
 endfunction
 
+" Set the current window to win_num. Generally this can be easily done with exec
+" win_num . "wincmd w", but this can rather stupidly give an E788 error in some
+" cases. E.g., while running the FileType autocmd for a quickfix window opened
+" with :copen, wincmd will give an error even if you are switching to the
+" current window (that is, not switching at all).
+"
+" This function helps out by not switching unless the switch would actually have
+" some effect. It seems likely the in general E788 will only happen on new
+" buffers which are only displayed in the current window, so switching only when
+" it's really necessary should be an effective work-around.
+function! s:FmtWarnSetCurrentWindow(win_num)
+    if winnr() != a:win_num
+        exec a:win_num . "wincmd w"
+    endif
+endfunction
+
 " Updates the display of the current buffer (in all windows it appears in) so
 " that the visible warnings match settings in b:fmtwarn.
 function! s:FmtWarnRefreshBuffer()
@@ -298,13 +314,13 @@ function! s:FmtWarnRefreshBuffer()
         let last_win = winnr("$")
         for w in range(1, last_win)
             if winbufnr(w) == bnum
-                exec w . "wincmd w"
+                call s:FmtWarnSetCurrentWindow(w)
                 call s:FmtWarnRefreshWindow()
             endif
         endfor
     finally
         " Restore original window
-        exec saved_win . "wincmd w"
+        call s:FmtWarnSetCurrentWindow(saved_win)
     endtry
 endfunction
 
